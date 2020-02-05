@@ -97,7 +97,8 @@ body {
 	display: table;
 	margin-top: 0;
 	width: 100%;
-	height: $feature-image-height;
+	height: 15vw;
+
 	overflow: hidden;
 
 	.header-title-wrap {
@@ -141,8 +142,9 @@ body {
 	top: -50%; 
 	left: -50%; 
 	width: 200%; 
-	height: 200%;
-	min-height: $feature-image-height;
+	//height: 200%;
+	height: 15vw;
+	min-height: 150px;
 	overflow: hidden;
 
 	&:after {
@@ -171,7 +173,8 @@ body {
 #post-index {
 
 	&.feature .header-title {
-		height: $front-page-feature-image-height;
+		height: 15vw;
+		min-height: $front-page-feature-image-height;
 	}
 
 	.entry-image {
