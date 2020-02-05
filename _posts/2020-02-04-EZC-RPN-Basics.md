@@ -10,7 +10,7 @@ image:
   feature: ezc_0.jpg
 ---
 
-This post is about my programming language [EZC](http://chemicaldevelopment.us). It is a programming language that is written in [RPN (Reverse Polish Notation)](https://en.wikipedia.org/wiki/Reverse_Polish_notation) syntax. Although most people have difficulty understanding at first, it makes some thing simpler. For example, there are no parenthesis required in EZC.
+This post is about [Polish Notation](https://en.wikipedia.org/wiki/Polish_notation), [Reverse Polish Notation (RPN)](https://en.wikipedia.org/wiki/Reverse_Polish_notation), and my programming language [EZC](http://chemicaldevelopment.us). It is a programming language that is written in RPN syntax. Although most people have difficulty understanding at first, it makes some thing simpler, and some things more beautiful. For example, there are no parenthesis required in EZC.
 
 It is also entirely stack based (i.e. everything happens on the stack). Read on to find out more!
 
