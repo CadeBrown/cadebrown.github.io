@@ -1,0 +1,34 @@
+
+<!--
+
+<nav id="dl-menu" class="dl-menuwrapper" role="navigation">
+	<ul>
+		<li><a href="{{site.baseurl}}/">Home</a></li>
+		<li><a href="{{site.baseurl}}/about/">About</a></li>
+		<li><img src="{{ site.url }}/images/{{ site.owner.avatar }}" alt="{{ site.owner.name }} photo" class="author-photo"></li>
+	</ul>
+</nav>
+
+-->
+
+<nav id="dl-menu" class="dl-menuwrapper" role="navigation">
+	<button class="dl-trigger">Open Menu</button>
+	<!--<ul class="dl-menu">-->
+	<ul class="dl-menu">
+			<li>
+				<img src="{{ site.url }}/images/{{ site.owner.avatar }}" alt="{{ site.owner.name }} photo" class="author-photo"/>
+			</li>
+
+			<li><a href="{{site.baseurl}}/">Home</a></li>
+			<li><a href="{{site.baseurl}}/about/">About</a></li>
+
+		{% for link in site.data.navigation %}
+	    {% if link.url contains 'http' %}
+	        {% assign domain = '' %}
+	        {% else %}
+	        {% assign domain = site.url %}
+	    {% endif %}
+	    <li><a href="{{ domain }}{{ link.url }}" {% if link.url contains 'http' %}target="_blank"{% endif %}>{{ link.title }}</a></li>
+	  {% endfor %}
+	</ul>
+</nav>
