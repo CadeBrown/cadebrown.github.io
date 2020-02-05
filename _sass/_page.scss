@@ -23,7 +23,7 @@ body {
 }
 
 .entry-content {
-	@include font-size(16);
+	@include font-size(20);
 
 	// Dotted line underlines for links
 	p > a,
