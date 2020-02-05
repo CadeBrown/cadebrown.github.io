@@ -195,6 +195,29 @@ Also, note that we pop them off in reverse order, that's because if we write `a 
 
 So, when we pop the values back off, we should pop them in reverse order, since `b` is on top (although, for the `+` operator, it doesn't matter since `a+b == b+a`)
 
+Our example of `2 x 3 + *` would be ran like this:
+
+```
+# start with empty stack
+|
+# encounter '2', so put it on:
+| 2
+# encounter 'x', look it up (we said that x=11)
+| 2 11
+# encounter '3', so put it on:
+| 2 11 3
+# encounter '+', so pop off 2 numbers
+| 2
+# and push on their sum
+| 2 14
+# encounter '*', so pop off 2 numbers
+|
+# push back on their product
+| 28
+```
+
+And voila! Our answer is revealed
+
 # EZC
 
 
