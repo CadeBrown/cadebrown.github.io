@@ -40,7 +40,7 @@ $$\Gamma(x) = \sin(\pi z) \Gamma(1 - x)$$
 
 Our goal is to define `C` functions with the following signatures, which evaluate the specific function at a particular point:
 
-```C
+```c
 
 double my_zeta(double x);
 double complex my_czeta(double complex x);
