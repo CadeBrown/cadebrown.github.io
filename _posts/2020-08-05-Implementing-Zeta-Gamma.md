@@ -1,5 +1,5 @@
 ---
-title: "Implementing the Zeta and Gamma functions (in C)"
+title: "Implementing the Zeta and Gamma functions from Scratch"
 layout: post
 categories:
   - math
