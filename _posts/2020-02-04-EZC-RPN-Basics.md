@@ -1,13 +1,8 @@
 ---
 title: "EZC & RPN Basics"
-layout: post
-categories:
-  - RPN
-  - languages
-tags:
-  - content
-image:
-  feature: ezc_0.jpg
+author: Cade Brown
+categories: [plt]
+tags: [ezc, rpn, plt, math]
 ---
 
 This post is about [Polish Notation](https://en.wikipedia.org/wiki/Polish_notation), [Reverse Polish Notation (RPN)](https://en.wikipedia.org/wiki/Reverse_Polish_notation), and my programming language [EZC](http://chemicaldevelopment.us/ezc). It is a programming language that is written in RPN syntax, and generally short syntax. Although most people have difficulty understanding at first, it makes some thing simpler, and some things more beautiful. For example, there are no parentheses required in EZC.

@@ -1,13 +1,9 @@
 ---
 title: "Implementing the Zeta and Gamma functions from Scratch"
-layout: post
-categories:
-  - math
-  - kscript
-tags:
-  - content
-image:
-  feature: riemann_zeta.gif
+author: Cade Brown
+categories: [math]
+tags: [math, kscript]
+pin: true
 ---
 
 I am in the process of implementating my own language, [kscript](https://github.com/chemicaldevelopment/kscript), and needed an implementation of the [Riemann Zeta Function](https://en.wikipedia.org/wiki/Riemann_zeta_function) and [Gamma Function](https://en.wikipedia.org/wiki/Gamma_function).

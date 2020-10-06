@@ -1,7 +1,8 @@
 ---
-title: Why Schools Should Use Free Software
-layout: post
-tags: FOSS
+title: "Why Schools Should Use Free Software"
+author: Cade Brown
+categories: [foss]
+tags: [foss]
 ---
 
 Schools should use free software because it enables further education, and critical thinking.
