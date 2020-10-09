@@ -10,8 +10,8 @@
   <div id="profile-wrapper" class="d-flex flex-column">
     <div id="avatar" class="d-flex justify-content-center">
       <a href="{{ site.baseurl }}/" alt="avatar">
-        {% assign avatar_url = site.avatar %}
-        {% capture start %}{{ site.avatar | slice: 0 }}{% endcapture %}
+        {% assign avatar_url = site.avatar_sidebar %}
+        {% capture start %}{{ site.avatar_sidebar | slice: 0 }}{% endcapture %}
         {% if start == '/' %}
           {% assign avatar_url = avatar_url | prepend: site.baseurl %}
         {% endif %}
