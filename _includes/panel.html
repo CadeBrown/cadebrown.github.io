@@ -20,59 +20,59 @@
       </h3>
       <nav id="toc" data-toggle="toc"></nav>
     </div>
-    {% endif %}
 
+    {% else %}
 
-    <!-- Recent Updates -->
+      <!-- Recent Updates -->
 
-    {% include update-list.html %}
+      {% include update-list.html %}
 
-    {% if update_list.size > 0 %}
+      {% if update_list.size > 0 %}
 
-    <div id="access-lastmod" class="post">
-      <h3 data-toc-skip>
-        {{- site.data.label.panel.lastmod -}}
-      </h3>
-      <ul class="post-content pl-0 pb-1 ml-1 mt-2">
+      <div id="access-lastmod" class="post">
+        <h3 data-toc-skip>
+          {{- site.data.label.panel.lastmod -}}
+        </h3>
+        <ul class="post-content pl-0 pb-1 ml-1 mt-2">
 
-      {% for item in update_list %}
-        {% assign post_url = item | split: "::" | last | url_encode | prepend: "/posts/" | append: "/" %}
-        {% assign post = site.posts | where: "url", post_url | first %}
+        {% for item in update_list %}
+          {% assign post_url = item | split: "::" | last | url_encode | prepend: "/posts/" | append: "/" %}
+          {% assign post = site.posts | where: "url", post_url | first %}
 
-        {% if post %}
-          {% assign url = post.url | relative_url %}
-          <li><a href="{{ url }}">{{ post.title }}</a></li>
-        {% endif %}
+          {% if post %}
+            {% assign url = post.url | relative_url %}
+            <li><a href="{{ url }}">{{ post.title }}</a></li>
+          {% endif %}
 
-      {% endfor %}
+        {% endfor %}
 
-      </ul>
-    </div><!-- #access-lastmod -->
-
-    {% endif %}
-
-  {% endif %} <!-- site.data.updates -->
-
-  {% include trending-tags.html %}
-
-    <!-- Trending Tags -->
-  {% if trending_tags.size > 0 %}
-    <div id="access-tags">
-      <h3 data-toc-skip>
-        {{- site.data.label.panel.trending_tags -}}
-      </h3>
-      <div class="d-flex flex-wrap mt-3 mb-1 mr-3">
-
-      {% for tag in trending_tags %}
-        {% capture url %}/tags/{{ tag | downcase | url_encode }}/{% endcapture %}
-        <a class="post-tag" href="{{ url | relative_url }}">{{ tag | replace: '-', ' ' }}</a>
-      {% endfor %}
+        </ul>
       </div>
-    </div>
+
+      {% endif %}
+
+    {% include trending-tags.html %}
+
+    {% if trending_tags.size > 0 %}
+      <div id="access-tags">
+        <h3 data-toc-skip>
+          {{- site.data.label.panel.trending_tags -}}
+        </h3>
+        <div class="d-flex flex-wrap mt-3 mb-1 mr-3">
+
+        {% for tag in trending_tags %}
+          {% capture url %}/tags/{{ tag | downcase | url_encode }}/{% endcapture %}
+          <a class="post-tag" href="{{ url | relative_url }}">{{ tag | replace: '-', ' ' }}</a>
+        {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    
+  {% endif %}
   {% endif %}
 
 
-  </div> <!-- .access -->
+  </div>
 
 
 </div> <!-- #panel-wrapper -->
