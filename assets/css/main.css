@@ -82,6 +82,7 @@ img {
     margin: 0 auto;
     padding: 0.16em;
     border: 1px solid black;
+    max-width: 100%;
 }
 
 
