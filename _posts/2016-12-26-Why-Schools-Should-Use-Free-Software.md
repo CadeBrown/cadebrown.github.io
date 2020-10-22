@@ -1,6 +1,6 @@
 ---
+layout: post
 title: "Why Schools Should Use Free Software"
-author: Cade Brown
 categories: [foss]
 tags: [foss]
 ---
@@ -177,3 +177,4 @@ Lots of schools, mine included, love to say that students are "professionals" in
 Schools should be a place for education, not jobs. 
 
 While a few kids will get jobs (as some of my friends have), the primary goal should be learning.
+

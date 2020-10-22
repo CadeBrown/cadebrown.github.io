@@ -1,0 +1,65 @@
+/* Code Syntax Highlighting */
+
+figure.highlight,
+pre.highlight {
+    padding: 0.5rem 0.9rem;
+    margin: 0.9rem 0;
+    overflow: auto;
+    line-height: 1.3rem;
+    position: relative;
+}
+
+.highlighter-rouge {
+    font-weight: 300;
+    position: relative;
+}
+    background-color: var(--col-bg0);
+
+p code.highlighter-rouge,
+p kbd {
+    /*color: #cc6666;
+    font-size: 1rem;*/
+    padding: 2px 4px;
+    border-radius: 2px;
+    word-break: break-word;
+}
+
+kbd {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.rouge-table .code pre {
+    overflow: hidden;
+}
+
+.rouge-table .code pre {
+    overflow: hidden;
+}
+
+table.rouge-table,
+table.rouge-table tr,
+table.rouge-table td,
+table.rouge-table pre {
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+table.rouge-table td.gutter {
+    padding-right: .2rem;
+    border-right: 1px solid #555;
+}
+
+table.rouge-table td.code {
+    padding-left: .2rem;
+}
+
+figure pre {
+    margin-bottom: 0;
+    tab-size: 4;
+}
+
+.lineno {
+    text-align: right;
+}

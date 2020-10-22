@@ -1,146 +1,56 @@
 ---
 layout: default
 ---
+<h1>{{ page.title }}</h1>
 
-<div class="row">
-
-  <div id="post-wrapper" class="col-12 col-lg-11 col-xl-8">
-
-    <div class="post pl-1 pr-1 pl-sm-2 pr-sm-2 pl-md-4 pr-md-4">
-
-      <h1 data-toc-skip>{{ page.title }}</h1>
-
-      <div class="post-meta text-muted d-flex flex-column">
-        <!-- Published date and author -->
-        <div>
-          Posted
-          {% include timeago.html date=page.date tooltip=true %}
-          by
-          <span class="author">
-          {% if page.author %}
-            {{ page.author }}
-          {% else %}
-            {{ site.author }}
-          {% endif %}
-          </span>
-        </div>
-
-        <!-- lastmod -->
-        {%- capture filename -%}
-          {{ page.url | split: "/" | last }}
-        {%- endcapture -%}
-
-        {% for item in site.data.updates %}
-          {% assign encode_filename = item.filename | url_encode %}
-          {% if filename == encode_filename %}
-            {% assign lastmod = item.lastmod %}
-            {% break %}
-          {% endif %}
-        {% endfor %}
-
-        {% if lastmod %}
-        <div>
-          Updated
-          {% include timeago.html date=lastmod class="lastmod" tooltip=true %}
-        </div>
+<!-- Series TOC -->
+{% if page.series %}
+    <aside class="series">
+        <h4>Series: <em>{{ site.data.series | where: 'id', page.series | map: 'title' }}</em></h4>
+        <ul>
+            {% assign series-posts = site.posts | reverse | where: 'series', page.series %}
+            {% for post in series-posts %}
+            <li>
+            {% if post.url == page.url %}
+            <strong>{{ post.title }}</strong>
+            {% else %}
+            <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a>
+            {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% if series-posts.size == 1 %}
+        <p>More posts coming soon!</p>
         {% endif %}
+    </aside>
+{% endif %}
 
-        <!-- page views -->
-        {% if site.google_analytics.pv.enabled %}
-        <div>
-          <span id="pv" class="pageviews"><i class="fas fa-spinner fa-spin fa-fw"></i></span>
-          views
-        </div>
-        {% endif %}
+<!-- Article Content -->
+{{ content }}
 
-      </div> <!-- .post-meta -->
+<!-- Links left/right articles in series -->
+{% if page.series %}
 
-      <div class="post-content">
-
-        {%- capture img_placehodler -%}
-          data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7
-        {% endcapture%}
-
-        {% if page.image %}
-          <img src="{{ img_placehodler }}" data-src="{{ page.image }}" class="post-preview-img">
-        {% endif %}
-
-        <!-- Using lozad. See: <https://github.com/ApoorvSaxena/lozad.js#usage> -->
-        {% if content contains '<img src=' %}
-          {% assign replacement = '<img src="' | append: img_placehodler | append: '" data-src=' %}
-          {{ content | replace: '<img src=', replacement }}
-        {% else %}
-          {{ content }}
-        {% endif %}
-      </div>
-
-      <div class="post-tail-wrapper text-muted">
-
-        <!-- categories -->
-        {% if page.categories.size > 0 %}
-        <div class="post-meta mb-3">
-          <i class="far fa-folder-open fa-fw mr-1"></i>
-          {% for category in page.categories %}
-            <a href='{{ site.baseurl }}/categories/{{ category | replace: ' ', '-' | downcase | url_encode }}/'>{{ category }}</a>
-            {%- unless forloop.last -%}, {%- endunless -%}
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- tags -->
-        {% if page.tags.size > 0 %}
-        <div class="post-tags">
-          <i class="fa fa-tags fa-fw mr-1"></i>
-          {% for tag in page.tags %}
-          <a href="{{ site.baseurl }}/tags/{{ tag | replace: ' ', '-' | downcase | url_encode }}/"
-            class="post-tag no-text-decoration" >
-            {{- tag -}}
-          </a>
-          {% endfor %}
-          </div>
-        {% endif %}
-
-        <div class="post-tail-bottom
-          d-flex justify-content-between align-items-center mt-3 pt-5 pb-2">
-          {% if site.data.rights.license %}
-          <div class="license-wrapper">
-            This post is licensed under
-            <a href="{{ site.data.rights.license.link }}">{{ site.data.rights.license.name }}</a>
-            by the author.
-          </div>
-          {% endif %}
-
-          {% include post-sharing.html %}
-
-        </div><!-- .post-tail-bottom -->
-
-      </div><!-- div.post-tail -->
-
-    </div> <!-- .post -->
+    {% assign series-posts = site.posts | reverse | where: 'series', page.series %}
+    {% for post in series-posts %}
+    {% if post.url == page.url %}
+        {% assign prev_post_index = forloop.index | minus: 1 %}
+        {% assign curr_post_index = forloop.index %}
+        {% assign next_post_index = forloop.index | plus: 1 %}
+    {% endif %}
+    {% endfor %}
 
 
-  </div> <!-- #post-wrapper -->
-
-  {% include panel.html %}
-
-</div> <!-- .row -->
-
-<div class="row">
-  <div class="col-12 col-lg-11 col-xl-8">
-    <div id="post-extend-wrapper" class="pl-1 pr-1 pl-sm-2 pr-sm-2 pl-md-4 pr-md-4">
-
-    {% include related-posts.html %}
-
-    {% include post-nav.html %}
-
-    {% if site.disqus.comments and page.comments %}
-      {% include disqus.html %}
+    {% for post in series-posts %}
+    {% if prev_post_index == forloop.index %}
+        <a class="btn" rel="prev" href="{{ site.baseurl }}{{ post.url }}">&larr; prev <strong>{{ page.series }}</strong> post</a>
     {% endif %}
 
-    </div> <!-- #post-extend-wrapper -->
+    {% if next_post_index == forloop.index %}
+        <a class="btn" rel="next" href="{{ site.baseurl }}{{ post.url }}">next <strong>{{ page.series }}</strong> post &rarr;</a>
+    {% endif %}
+    {% endfor %}
+{% endif %}
 
-  </div> <!-- .col-* -->
-
-</div> <!-- .row -->
-
-{% include lozad.html %}
+<!-- Comments -->
+{% if site.disqus-id %} {% include comments.html %} {% endif %}

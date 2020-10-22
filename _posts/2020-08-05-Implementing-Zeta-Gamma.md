@@ -1,22 +1,17 @@
 ---
-title: "Implementing the Zeta and Gamma functions from Scratch"
-author: Cade Brown
+layout: post
+title: "Implementing {Zeta, Gamma} Functions From Scratch"
 categories: [math]
 tags: [math, kscript]
-pin: true
 ---
 
-I am in the process of implementating my own language, [kscript](https://github.com/chemicaldevelopment/kscript), and needed an implementation of the [Riemann Zeta Function](https://en.wikipedia.org/wiki/Riemann_zeta_function) and [Gamma Function](https://en.wikipedia.org/wiki/Gamma_function).
+In developing [my language, kscript](https://github.com/chemicaldevelopment/kscript), I wanted to have the [Riemann Zeta Function](https://en.wikipedia.org/wiki/Riemann_zeta_function) and [Gamma Function](https://en.wikipedia.org/wiki/Gamma_function) available as part of the standard library. So, I implemented it!
 
-I've researched on the topic of implementing these functions; this blog post will walk you through how to craft it yourself, from scratch! I generate C code, but the C code should be easy to port to any other language (Python, JavaScript, C#, Go, etc). I don't make use of any pointers; only constant arrays. You are free to use this code in any non-commercial project, and can download it from these links:
-
-  * [Full Implementation + Testing](https://gist.github.com/CadeBrown/52d316379ca6335ad8614991215dc335)
-  * [Generation Script (in Python)](https://github.com/ChemicalDevelopment/kscript/blob/master/modules/m/tools/gen_gz.py)
+We program a code generator in Python, which generates C code, which can then be used in another project with no dependencies.
 
 <!--more-->
 
 ## Definitions
-
 
 I'll assume you're more or less familiar with what the Zeta and Gamma functions are, but I'll also provide a definition we'll work with:
 
@@ -56,8 +51,7 @@ We include `lgamma` functions to compute the logarithm of the gamma function; we
 
 ## Implementation
 
-
-You can see the source code for this file in kscript's source code as `modules/m/tools/gen_gz.py`, which is available online here: [https://github.com/ChemicalDevelopment/kscript/blob/master/modules/m/tools/gen_gz.py](https://github.com/ChemicalDevelopment/kscript/blob/master/modules/m/tools/gen_gz.py)
+You can see the source code for this generator available online here: [https://gist.github.com/CadeBrown/f60d234cbfae1fc3cc1dcb114b93d538](https://gist.github.com/CadeBrown/f60d234cbfae1fc3cc1dcb114b93d538)
 
 I used the paper referenced here: [http://numbers.computation.free.fr/Constants/Miscellaneous/zetaevaluations.pdf](http://numbers.computation.free.fr/Constants/Miscellaneous/zetaevaluations.pdf) to form the basis of my implementation for the Zeta function. Specifically, section `1.2` entitled `Convergence of alternating series method`. We'll also need an implementation of the Gamma Function, which I've linked papers to help us. Note that we can use C's `tgamma` function for real number computations, but we'll have to roll our own for complex numbers (we'll implement both, for completeness). I won't go into all of the derivations for all the formula (those are covered in the papers I linked if you're interested); I'll try and just breifly cover the motivation and basic algebra between formulas
 
@@ -640,11 +634,14 @@ Feel free to compile it on your machine and email me results; I'd be happy to in
 
 My implementation and glibc's implementation of the gamma function agree everywhere up to `14` digits, which is plenty accurate (we could check Wolfram alpha exactly to see whether I was closer or they were, but they are both fine for our purposes).
 
-The source code I use in kscript (as well as for the demo) is available at [https://gist.github.com/CadeBrown/52d316379ca6335ad8614991215dc335](https://gist.github.com/CadeBrown/52d316379ca6335ad8614991215dc335), feel free to use in non-commercial projects.
+The generated source code I use in kscript (as well as for the demo) is available at [https://gist.github.com/CadeBrown/52d316379ca6335ad8614991215dc335](https://gist.github.com/CadeBrown/52d316379ca6335ad8614991215dc335), feel free to use in non-commercial projects.
 
 I hope you've enjoyed the blog, and can use these implementations for your own project. The C code is very simple and should be pretty easy to port to other languages (JavaScript, Python, C#, etc, etc).
 
 Thanks for reading!
+
+
+
 
 
 

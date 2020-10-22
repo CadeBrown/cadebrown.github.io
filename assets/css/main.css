@@ -1,0 +1,105 @@
+/* main.css - cade.site's main sitewide CSS
+ *
+ * 
+ * SEE: https://github.com/richleland/pygments-css
+ *
+ * @author:    Cade Brown <cade@kscript.org>
+ */
+
+/* Light Theme (default) */
+:root {
+    --col-bg0: #ffffff;
+    --col-bg1: #efefef;
+    --col-shadow: #aaaaaa;
+
+    --col-text: #000000;
+
+    --col-link: #366fca;
+}
+
+/* Dark Theme */
+html[data-theme='dark'] {
+    --col-bg0: #0e0e0e;
+    --col-bg1: #2a2a2a;
+    --col-shadow: #161616;
+
+    --col-text: #eeeeee;
+
+    --col-link: #82c7ff;
+}
+
+.theme-toggle {
+    cursor: pointer;
+}
+
+/*  */
+
+h1 {
+    margin-block-start: 0.5em;
+    margin-block-end: 0.7em;
+    line-height: 1.8rem;
+}
+h2 {
+    margin-block-start: 1.4em;
+    line-height: 1.6rem;
+}
+h3 {
+    margin-block-start: 1.2em;
+    line-height: 1.5rem;
+}
+
+a:link {
+    color: var(--col-link);
+}
+
+a:visited {
+    color: var(--col-link);
+}
+
+body {
+    margin: 1em;
+    line-height: 1.20rem;
+    /* font-family: monospace; */
+    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 1.10rem;
+    background-color: var(--col-bg0);
+    color: var(--col-text);
+}
+
+hr {
+    margin: 1.2em 0.01em 0.9em 0.01em;
+}
+
+.main {
+    background-color: var(--col-bg1);
+    border-radius: 5px;
+    box-shadow: 0px 0px 12px var(--col-shadow);
+    padding: 1em;
+}
+
+img {
+    display: block;
+    margin: 0 auto;
+    padding: 0.16em;
+    border: 1px solid black;
+}
+
+
+table {
+    margin: auto;
+}
+
+table, th, td {
+    border: 1px solid black;
+}
+
+td {
+    padding: 0.2em;
+}
+
+
+@media screen and (min-width: 992px) {
+    body {
+        margin: 1em 12vw;
+    }
+}
