@@ -1,12 +1,11 @@
 ---
 layout: default
 ---
-<h1>{{ page.title }}</h1>
 
 <!-- Series TOC -->
 {% if page.series %}
     <aside class="series">
-        <h4>Series: <em>{{ site.data.series | where: 'id', page.series | map: 'title' }}</em></h4>
+        <h4>Series: <em>{{ page.series }}</em></h4>
         <ul>
             {% assign series-posts = site.posts | reverse | where: 'series', page.series %}
             {% for post in series-posts %}
@@ -23,7 +22,10 @@ layout: default
         <p>More posts coming soon!</p>
         {% endif %}
     </aside>
+    <hr>
 {% endif %}
+
+<h1>{{ page.title }}</h1>
 
 <!-- Article Content -->
 {{ content }}

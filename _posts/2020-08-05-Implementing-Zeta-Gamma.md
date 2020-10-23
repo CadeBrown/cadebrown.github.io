@@ -3,6 +3,7 @@ layout: post
 title: "Implementing {Zeta, Gamma} Functions From Scratch"
 categories: [math]
 tags: [math, kscript]
+thumb: assets/img/gz-0.svg
 ---
 
 In developing [my language, kscript](https://github.com/chemicaldevelopment/kscript), I wanted to have the [Riemann Zeta Function](https://en.wikipedia.org/wiki/Riemann_zeta_function) and [Gamma Function](https://en.wikipedia.org/wiki/Gamma_function) available as part of the standard library. So, I implemented it!

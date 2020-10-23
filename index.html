@@ -2,8 +2,17 @@
 layout: default
 ---
 
+<h2>Recent Posts</h2>
+
 {% for post in paginator.posts %}
-<section>
+<section class='post-section'>
+  <div class='post-thumb-container'>
+    {% if post.thumb %}
+    <img class='post-thumb' src='{{ site.baseurl }}/{{ post.thumb }}'>
+    {% else %}
+    <img class='post-thumb' src='{{ site.baseurl }}/assets/img/favicons/full.png'>
+    {% endif %}
+  </div>
   <h2>
     <a href='{{ site.url }}{{ post.url }}' title='{{ post.title }}'>
       {{ post.title }}
@@ -11,6 +20,8 @@ layout: default
   </h2>
   
   <p>{{ post.excerpt | strip_html | truncate: 420 }}</p>
+
+  <em>Posted {{ post.date | date: '%Y-%m-%d' }}</em>
 </section>       
 {% endfor %}
 

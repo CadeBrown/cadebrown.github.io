@@ -12,8 +12,8 @@ pre.highlight {
 .highlighter-rouge {
     font-weight: 300;
     position: relative;
-}
     background-color: var(--col-bg0);
+}
 
 p code.highlighter-rouge,
 p kbd {

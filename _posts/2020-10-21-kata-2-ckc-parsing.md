@@ -4,6 +4,7 @@ title: "Kata (#2) - First Compiler (Parsing)"
 categories: [plt]
 tags: [plt]
 series: kata
+thumb: assets/img/kata-ast-0.svg
 ---
 
 Using our tokenizer/lexer created in the last post for Kata, we are now going to parse the token stream into an [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree), via a recursive descent parser.
@@ -26,7 +27,7 @@ I'm going to take an aside here and talk about ASTs for a moment, because you wi
 
 For basic expressions, AST represents the program in a format of a tree -- that is to say a structure in which there are nodes (often shown as oval/circle shaped shapes) and each node has 0 or more children (which they point to with arrows). The top of an AST is the actual result of the program, and it will use the children to determine the result. To me, they're kind of beautiful. But, also, I'm a nerd, so you should take that with a grain of salt. 
 
-Let's take a somewhat simple expression and analyze it. Note that this syntax isn't Kata specific, it's just a math expression: `x * (1 + y) + f(x, y, 2)`. I haven't told you what `x`, `y`, or `f` are, but you instantly recognize the expression as valid (`x`, `y` are probably numbers, and `f` is a function). If I have you more information, you could tell me the result.
+Let's take a somewhat simple expression and analyze it. Note that this syntax isn't Kata specific, it's just a math expression: `x * (1 + y) + f(x, y, 2)`. I haven't told you what `x`, `y`, or `f` are, but you can recognize the expression as valid (`x`, `y` are probably numbers, and `f` is a function). If I gave you more information, you could tell me the result.
 
 For example, if I told you: `x = 1, y = 2, f(a, b, c) = a + b + c`, you could easily reduce the expression as follows:
 
@@ -49,8 +50,7 @@ If you already have an expression in this format, evaluating it is as follows (s
   1. If the current node is a constant, return this value
   2. If the current node is a variable, look up and return the value for the given name
   3. If the current node is an operator, repeat these steps for each of its children, and then apply the operator with the children's values and return that value
-  4. If the current node is a function, repeat these steps for each of its children, and then apply/call the function itself and return the value it returns
-
+  4. If the current node is a function, repeat these steps for each of its children, and then apply/call the function itself with a list of the values returned by the children, and return the result from the function call
 In abstract programming terms, we could define a function `eval(ast)`, that works like this:
 
 ```
@@ -248,6 +248,8 @@ const char* ast_k_name(int k) {
 ```
 
 It's pretty simple, allows us to create and free ASTs, as well as add children nodes. We could write traversal algorithms now, but we'll just write them for whatever application we want (since we may want special behavior).
+
+We use `intptr_t` for the integral value, since that will be the largest (native) integer size we really need to deal with.
 
 You'll notice we have also added `struct EXTRA* extra;` as a member. We haven't defined what `struct EXTRA` is yet, because we may want it to be different per backend or per application. So, we just default to setting it to `NULL` and don't touch it after that.
 

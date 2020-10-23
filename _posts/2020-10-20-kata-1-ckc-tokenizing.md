@@ -4,6 +4,7 @@ title: "Kata (#1) - First Compiler (Tokenizing)"
 categories: [plt]
 tags: [plt]
 series: kata
+thumb: assets/img/kata-ckc-arch.svg
 ---
 
 In this part, we begin implementing a compiler for a subset of the full Kata language. It won't be optimized, or particularly well designed, but it'll get the job done! (and technically, it is probably better called an interpreter).
