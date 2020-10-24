@@ -247,7 +247,10 @@ const char* ast_k_name(int k) {
 
 ```
 
-It's pretty simple, allows us to create and free ASTs, as well as add children nodes. We could write traversal algorithms now, but we'll just write them for whatever application we want (since we may want special behavior).
+It's pretty simple, allows us to create and free ASTs, as well as add children nodes. We could write traversal algorithms now, but we'll just write them for whatever application we want (since we may want special behavior). 
+
+
+We use `ast_push(self, child)` to add `child` to the list of sub-nodes for `self`.
 
 We use `intptr_t` for the integral value, since that will be the largest (native) integer size we really need to deal with.
 
@@ -411,7 +414,7 @@ ast parse_prog(const char* name, const char* src, int n_tok, tok_t* tok) {
 #define CUR (tok[toki])
 #define NEXT (tok[toki+1])
 #define EAT() (tok[toki++])
-#define EQ(_tok, _str) (strncmp(src+(_tok).pos, _str, (_tok).len) == 0)
+#define EQ(_tok, _str) ((_tok).len == (sizeof(_str) - 1) && strncmp(src+(_tok).pos, _str, (_tok).len) == 0)
 #define STR(_tok) newstr((_tok).len, src+(_tok).pos)
 
 RULE(program) {
