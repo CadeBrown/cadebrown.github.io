@@ -70,6 +70,7 @@ body {
     /* font-family: monospace; */
     font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
     font-size: 1.00rem;
+    tab-size: 4;
     background-color: var(--col-bg0);
     color: var(--col-text);
 }
@@ -82,7 +83,8 @@ img {
     display: block;
     margin: 0 auto;
     border: 1px solid black;
-    max-width: 100%;
+    max-width: 87%;
+    max-height: 28em;
 }
 
 table {

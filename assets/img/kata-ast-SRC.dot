@@ -1,0 +1,80 @@
+/* included for reference */
+digraph G {
+    compound=true;
+
+	0 [label="+",color=lightgrey,style=filled];
+	1 [label="*",color=lightgreen,style=filled];
+	2 [label="f",color=lightgreen,style=filled];
+	3 [label="x",color=lightgreen,style=filled];
+	4 [label="+",color=lightgreen,style=filled];
+	5 [label="1",color=lightgreen,style=filled];
+	6 [label="y",color=lightgreen,style=filled];
+	7 [label="x",color=lightgreen,style=filled];
+	8 [label="y",color=lightgreen,style=filled];
+	9 [label="2",color=lightgreen,style=filled];
+
+	0 -> 1;
+	0 -> 2;
+	1 -> 3;
+	1 -> 4;
+	4 -> 5;
+	4 -> 6;
+	
+	2 -> 7;
+	2 -> 8;
+	2 -> 9;
+
+	subgraph cluster_0 {
+    	label=<Variables>;
+		vars [shape=record,label="{{x|1}|{y|2}}"];
+	}
+	9 -> vars [style=invis];
+
+
+	1 -> 0 [label=<<FONT FACE='monospace'>3</FONT>>,color="green"];
+	2 -> 0 [label=<<FONT FACE='monospace'>5</FONT>>,color="green"];
+
+	3 -> 1 [label=<<FONT FACE='monospace'>1</FONT>>,color="green"];
+	4 -> 1 [label=<<FONT FACE='monospace'>3</FONT>>,color="green"];
+
+	7 -> 2 [label=<<FONT FACE='monospace'>1</FONT>>,color="green"];
+	8 -> 2 [label=<<FONT FACE='monospace'>2</FONT>>,color="green"];
+	9 -> 2 [label=<<FONT FACE='monospace'>2</FONT>>,color="green"];
+
+	5 -> 4 [label=<<FONT FACE='monospace'>1</FONT>>,color="green"];
+	6 -> 4 [label=<<FONT FACE='monospace'>2</FONT>>,color="green"];
+
+
+}
+
+/*
+
+digraph G {
+
+	subgraph cluster_0 {
+		style=filled;
+		color=lightgrey;
+		node [style=filled,color=white];
+		a0 -> a1 -> a2 -> a3;
+		label = "process #1";
+	}
+
+	subgraph cluster_1 {
+		node [style=filled];
+		b0 -> b1 -> b2 -> b3;
+		label = "process #2";
+		color=blue
+	}
+	start -> a0;
+	start -> b0;
+	a1 -> b3;
+	b2 -> a3;
+	a3 -> a0;
+	a3 -> end;
+	b3 -> end;
+
+	start [shape=Mdiamond];
+	end [shape=Msquare];
+}
+
+*/

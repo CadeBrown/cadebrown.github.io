@@ -1,0 +1,13 @@
+
+digraph G {
+    rankdir=LR;
+        label="ckc";
+    
+    IR [label="LLVM IR"];
+    Input -> Tokens [label="Lexer"];
+        Tokens -> AST [label="Parser"];
+    
+    AST -> IR [label="Codegen"];
+
+}
+
