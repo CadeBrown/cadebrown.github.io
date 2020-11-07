@@ -237,7 +237,7 @@ The kinds of tokens are defined in `kc.hh`, in these lines:
 
 We'll add tokens as we go, but we'd like to first implement these basic rules, and make sure we can test it out. Let's define a function called `tokenize` in our header:
 
-```
+```c++
 /* Return a list of tokens (ending with 'KIND_EOF') */
 vector<Token> tokenize(const string& src_name, const string& src);
 ```
