@@ -15,7 +15,7 @@ As a refresher, here's the diagram of parts of `ckc`:
 
 ![assets/img/kata-ckc-arch.svg](assets/img/kata-ckc-arch.svg)
 
-We've just finished the `Lexer` step, and now we will implement the `Parse` step (partially). This will transform the stream of tokens (which are essentially like 'words' to the computer) into an Abstract Syntax Tree (or, 'AST'). To use the analogy from earlier, if text is just a bunch of numbers to a computer, and tokens are logical groupings of characters into names, numbers, and puncutation, then an AST is like a human brain's understanding of a sentence. When presented with `int x;` it understands that you are declaring a variable called 'x' with a type 'int'.
+We've just finished the `Lexer` step, and now we will implement the `Parse` step (partially). This will transform the stream of tokens (which are essentially like 'words' to the computer) into an Abstract Syntax Tree (or, 'AST'). To use the analogy from earlier, if text is just a bunch of numbers to a computer, and tokens are logical groupings of characters into names, numbers, and puncutation, then an AST is like a human brain's understanding of a sentence. When presented with `int x;` an AST will allow the compiler to understand that the developer is declaring a variable called 'x' with a type 'int'.
 
 So, now the question becomes: how do we transform tokens into ASTs? And indeed, this is a challenging problem at first glance. We will define a formal grammar (in [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) format), and then actually implement the parser using a [recursive descent parser](https://en.wikipedia.org/wiki/Recursive_descent_parser). I chose to use a recursive descent parser because they are straightforward to implement and are easy to modify and undsterstand. The syntax of a recursive descent parser closely mirrors the grammar it is describing.
 
@@ -23,7 +23,7 @@ So, now the question becomes: how do we transform tokens into ASTs? And indeed, 
 
 I'm going to take an aside here and talk about ASTs for a moment, because you will need the ideas bouncing in your head as you write the compiler to fully appreciate them.
 
-For basic expressions, AST represents the program in a format of a tree -- that is to say a structure in which there are nodes (often shown as oval/circle shaped shapes) and each node has 0 or more children (which they point to with arrows). The top of an AST is the actual result of the program, and it will use the children to determine the result. To me, they're kind of beautiful. But, that's definitely up to personal interpretation
+ASTs represents the program in a format of a tree -- that is to say a structure in which there are nodes (often shown as oval/circle shaped shapes) and each node has 0 or more children (which they point to with arrows). The top of an AST is the actual result of the program, and it will use the children to determine the result. To me, they're kind of beautiful. But, that's definitely up to personal interpretation
 
 Let's take a somewhat simple expression and analyze it. Note that this syntax isn't Kata specific, it's just a math expression: `x * (1 + y) + f(x, y, 2)`. I haven't told you what `x`, `y`, or `f` are, but you can recognize the expression as valid (`x`, `y` are probably numbers, and `f` is a function). If I gave you more information, you could tell me the result.
 
@@ -108,17 +108,53 @@ Whew! That was quite an example, but hopefully the diagrams made it easier to un
   2. Parentheses are irrelevant at this point
   3. It has been demonstrated that this method will work for computer evaluation (which is needed for the compiler)
 
-We'll write the evaluator in a later part, but we first need to challenge of transforming the token stream we created last post into this AST representation, so let's hop back into `ckc`. I just thought I'd cover ASTs so you know what they are, and hopefully begin to appreciate how useful they are
+We won't be doing the actual computation (LLVM will do it for us), but we first need to challenge of transforming the token stream we created last post into this AST representation, so let's hop back into `ckc`. I just thought I'd cover ASTs so you know what they are, and hopefully begin to appreciate how useful they are
 
 
 ### AST Implementation
 
-Our AST implementation will be straightforward:
+We'll be using [unique_ptr](https://www.geeksforgeeks.org/auto_ptr-unique_ptr-shared_ptr-weak_ptr-2/), which is essentially a manager of the data it points to -- only one `unique_ptr` can point to a particular object at any time. This means you can't have: `unique_ptr<T> A = B;`. You must use the `std::move` function, such that: `unique_ptr<T> A = move(B);`. This invalidates `B`, and it is now considered NULL/unusable/deleted, and you need to instead refer to `A`. Unique pointers are somewhat hard to understand, but once you understand that they mean that a single reference is kept to a value, it means you can return pointers from functions and you don't need to manually free/delete them -- unique pointers do the management automatically. 
 
+To convert a unique pointer to a normal pointer, use `unique_ptr<T>::get()`, i.e. `T* A = B::get();`.
+
+To construct a unique pointer, you can either cast a normal pointer to it (explicitly), like `make_unique<T>(B)`, or use the `make_unique<T>(...)` function, which will take the same arguments as `new T(...)` but return a unique pointer. However, this function is only defined in C++14 and above. So, we need to include our own definition:
 
 ```c++
-/* ... in 'kc.hh' */
+template<class T> struct _Unique_if {
+    typedef unique_ptr<T> _Single_object;
+};
 
+template<class T> struct _Unique_if<T[]> {
+    typedef unique_ptr<T[]> _Unknown_bound;
+};
+
+template<class T, size_t N> struct _Unique_if<T[N]> {
+    typedef void _Known_bound;
+};
+
+template<class T, class... Args>
+    typename _Unique_if<T>::_Single_object
+    make_unique(Args&&... args) {
+        return unique_ptr<T>(new T(std::forward<Args>(args)...));
+    }
+
+template<class T>
+    typename _Unique_if<T>::_Unknown_bound
+    make_unique(size_t n) {
+        typedef typename remove_extent<T>::type U;
+        return unique_ptr<T>(new U[n]());
+    }
+
+template<class T, class... Args>
+    typename _Unique_if<T>::_Known_bound
+    make_unique(Args&&...) = delete;
+```
+
+For our ASTs, we'll keep children ASTs as unique pointers, so they "own" the unique copy of their children, and we don't have to worry about freeing them.
+
+Our AST implementation will be:
+
+```c++
 /* Abstract Syntax Tree - represents program semantics in an abstract way
  *
  * Technically, this is kind of a mash up of a few types:
@@ -141,16 +177,65 @@ struct AST {
         KIND_INT,
         KIND_STR,
 
-        /* Single name/identifier in the code */
+        /* Variable */
         KIND_NAME,
+
+        /* Attribute reference: 'L.R' */
+        KIND_ATTR,
+
+        /* Attribute pointer reference 'L->R' */
+        KIND_ATTR_PTR,
+
+        /* Function Call/Indexing Call: 'f(a, b)' or 'f[a, b]' */
+        KIND_CALL,
+        KIND_INDEX,
+
+        /* Binary assignment operators */
+        KIND_ASSIGN,
+        KIND_BOP_AADD,
+        KIND_BOP_ASUB,
+        KIND_BOP_AMUL,
+        KIND_BOP_ADIV,
+        KIND_BOP_AMOD,
+        KIND_BOP_ALSH,
+        KIND_BOP_ARSH,
+        KIND_BOP_AOR,
+        KIND_BOP_AXOR,
+        KIND_BOP_AAND,
+
+        KIND_BOP_OROR,
+        KIND_BOP_ANDAND,
 
         /* Binary operators */
         KIND_BOP_ADD,
         KIND_BOP_SUB,
         KIND_BOP_MUL,
         KIND_BOP_DIV,
-        /* ... lots of operators */
+        KIND_BOP_MOD,
+        KIND_BOP_LSH,
+        KIND_BOP_RSH,
+        KIND_BOP_OR,
+        KIND_BOP_XOR,
+        KIND_BOP_AND,
 
+        KIND_BOP_LT,
+        KIND_BOP_LE,
+        KIND_BOP_GT,
+        KIND_BOP_GE,
+        KIND_BOP_EQ,
+        KIND_BOP_NE,
+
+        /* Unary operators */
+        KIND_UOP_PREINC, // ++x
+        KIND_UOP_PREDEC, // --x
+        KIND_UOP_PREPOS, // +x
+        KIND_UOP_PRENEG, // -x
+        KIND_UOP_PRESQIG, // ~x
+        KIND_UOP_PRENOT, // !x
+        KIND_UOP_PREAND, // &x
+        KIND_UOP_PRESTAR, // *x
+        KIND_UOP_POSTINC, // x++
+        KIND_UOP_POSTDEC, // x--
 
     } kind;
 
@@ -158,10 +243,10 @@ struct AST {
     Token tok;
 
     /* List of children nodes */
-    vector<AST*> sub;
+    vector< unique_ptr<AST> > sub;
 
-    AST(Token tok_, const vector<AST*> sub_, Kind kind_=Kind::KIND_BLOCK)
-        : sub(sub_), tok(tok_), kind(kind_) {}
+    AST(Token tok_, Kind kind_=Kind::KIND_BLOCK)
+        : tok(tok_), kind(kind_) {}
 
     /* Convert to string */
     operator string() const {
@@ -180,18 +265,25 @@ struct AST {
     /* Return a symbol representing kind of AST, or "" if it doesn't apply */
     string get_symbol();
 
-    /* Convert to graphviz dotfile */
+    /* Convert to graphviz dotfile format */
     string to_dot();
+
 };
+
 ```
 
-It's pretty simple, allows us to create and free ASTs, as well as add children nodes. We could write traversal algorithms now, but we'll just write them for whatever application we want (since we may want special behavior). Also, take note that we aren't using any features of C++ dynamic types, which we may do in the future. For now, however, we'll keep it with a `kind`, and keep the functionality implemented when we use it.
+It's pretty simple, allows us to create and free ASTs, as well as add children nodes. To add a child node, you will use `ast->sub.push_back(move(new_child))`. We need to use the `move` function because we are using `unique_ptr`. 
+
+We could write traversal algorithms now, but we'll just write them for whatever application we want (since we may want special behavior). Also, take note that we aren't using any features of C++ dynamic types, which we may do in the future. For now, however, we'll keep it with a `kind`, and keep the functionality implemented when we use it.
+
+ASTs will not have a associated type that tells the type of the result of an expression is -- we'll cover that when we do code generation (since we don't know what the types of variables are, functions, etc.).
 
 Let's go ahead and have a file `ast.cc` for AST-related routines -- we'll make one to output [graphviz](https://graphviz.org/) code, which we can turn into diagrams (like you've seen in this code, demonstrating how to use ASTs), and another to return a simple symbol for things like operators:
 
 
 ```c++
 
+/* Graphviz dotfile generator state */
 struct DotGen {
 
     /* Current node ID */
@@ -204,15 +296,15 @@ struct DotGen {
 };
 
 /* internal method to add an AST to the graphviz output */
-static int addast(string& out, DotGen& gen, AST* self) {
+static int addast(string& out, DotGen& gen, AST& self) {
     int id = gen.newid();
     vector<int> sub;
-    for (auto& it : self->sub) sub.push_back(addast(out, gen, it));
+    for (auto& it : self.sub) sub.push_back(addast(out, gen, *it));
 
     string label = "{}";
-    if (self->kind == AST::KIND_INT || self->kind == AST::KIND_STR || self->kind == AST::KIND_NAME) {
-        label = (string)self->tok;
-    } else label = self->get_symbol();
+    if (self.kind == AST::KIND_INT || self.kind == AST::KIND_STR || self.kind == AST::KIND_NAME) {
+        label = (string)self.tok;
+    } else label = self.get_symbol();
 
     string indent = (string)"    ";
 
@@ -234,7 +326,7 @@ string AST::to_dot() {
 
     DotGen gen;
     gen.id = 0;
-    addast(res, gen, this);
+    addast(res, gen, *this);
 
     res += "}";
     return res;
@@ -252,7 +344,43 @@ string AST::get_symbol() {
     else if (k == AST::KIND_ASSIGN) return "=";
 
     else if (k == AST::KIND_BOP_AADD) return "+=";
-    /* so forth... */
+    else if (k == AST::KIND_BOP_ASUB) return "-=";
+    else if (k == AST::KIND_BOP_AMUL) return "*=";
+    else if (k == AST::KIND_BOP_ADIV) return "/=";
+    else if (k == AST::KIND_BOP_AMOD) return "%=";
+    else if (k == AST::KIND_BOP_ALSH) return "<<=";
+    else if (k == AST::KIND_BOP_ARSH) return ">>=";
+    else if (k == AST::KIND_BOP_AOR) return "|=";
+    else if (k == AST::KIND_BOP_AXOR) return "^=";
+    else if (k == AST::KIND_BOP_AAND) return "&=";
+    
+    else if (k == AST::KIND_BOP_OROR) return "||";
+    else if (k == AST::KIND_BOP_ANDAND) return "&&";
+
+    else if (k == AST::KIND_BOP_ADD) return "+";
+    else if (k == AST::KIND_BOP_SUB) return "-";
+    else if (k == AST::KIND_BOP_MUL) return "*";
+    else if (k == AST::KIND_BOP_DIV) return "/";
+    else if (k == AST::KIND_BOP_MOD) return "%";
+    else if (k == AST::KIND_BOP_LSH) return "<<";
+    else if (k == AST::KIND_BOP_RSH) return ">>";
+    else if (k == AST::KIND_BOP_OR) return "|";
+    else if (k == AST::KIND_BOP_XOR) return "^";
+    else if (k == AST::KIND_BOP_AND) return "&";
+
+    else if (k == AST::KIND_BOP_LT) return "<";
+    else if (k == AST::KIND_BOP_LE) return "<=";
+    else if (k == AST::KIND_BOP_GT) return ">";
+    else if (k == AST::KIND_BOP_GE) return ">=";
+    else if (k == AST::KIND_BOP_EQ) return "==";
+    else if (k == AST::KIND_BOP_NE) return "!=";
+    else if (k == AST::KIND_UOP_PREINC) return "++ (pre)";
+    else if (k == AST::KIND_UOP_PREDEC) return "-- (pre)";
+    else if (k == AST::KIND_UOP_PREPOS) return "+";
+    else if (k == AST::KIND_UOP_PRENEG) return "-";
+    else if (k == AST::KIND_UOP_PRESQIG) return "~";
+    else if (k == AST::KIND_UOP_PRENOT) return "!";
+    else if (k == AST::KIND_UOP_PREAND) return "&";
     else if (k == AST::KIND_UOP_PRESTAR) return "*";
     else if (k == AST::KIND_UOP_POSTINC) return "++ (post)";
     else if (k == AST::KIND_UOP_POSTDEC) return "-- (post)";
@@ -282,9 +410,11 @@ int main(int argc, char** argv) {
     printwarnings();
 
     /* construct AST */
-    AST* x = new AST(toks[0], {}, AST::KIND_NAME);
-    AST* y = new AST(toks[2], {}, AST::KIND_INT);
-    AST* z = new AST(toks[1], {x, y}, AST::KIND_BOP_ADD);
+    unique_ptr<AST> x = make_unique<AST>(toks[0], AST::KIND_NAME);
+    unique_ptr<AST> y = make_unique<AST>(toks[2], AST::KIND_INT);
+    unique_ptr<AST> z = make_unique<AST>(toks[1], AST::KIND_BOP_ADD);
+    z->sub.push_back(move(x));
+    z->sub.push_back(move(y));
 
     cout << z->to_dot() << endl;
 
@@ -349,7 +479,7 @@ So, let's create a file called `parse.cc`, and define some functions in `kc.hh`:
 ```c++
 
 /* Parse an entire file, and return an AST for it. Return NULL if there were errors */
-AST* parse_file(vector<Token>& toks);
+unique_ptr<AST> parse_file(vector<Token>& toks);
 
 ```
 
@@ -372,7 +502,7 @@ AST* parse_file(vector<Token>& toks);
  */
 
 /* Defines a grammar rule */
-#define RULE(_name) static AST* R_##_name(vector<Token>& toks, int& toki)
+#define RULE(_name) static unique_ptr<AST> R_##_name(vector<Token>& toks, int& toki)
 
 /* Consume a subrule, or return NULL if it did not match */
 #define SUB(_name) R_##_name(toks, toki)
@@ -394,27 +524,23 @@ RULE(EXPR);
 RULE(ATOM);
 
 RULE(PROGRAM) {
-    AST* res = new AST(TOK, {}, AST::KIND_BLOCK);
+    unique_ptr<AST> res = make_unique<AST>(TOK, AST::KIND_BLOCK);
 
     /* Read as many statements as possible, or return NULL 
      *  if one of those failed
      */
     while (!DONE) {
-        AST* sub = SUB(STMT);
-        if (!sub) {
-            delete res;
-            return NULL;
-        }
-        res->sub.push_back(sub);
+        unique_ptr<AST> sub = SUB(STMT);
+        if (!sub) return NULL;
+        res->sub.push_back(move(sub));
     }
 
     if (TOK.kind == Token::KIND_EOF) {
         /* Complete program */
         return res;
     } else {
-        /* Extra tokens */
+        /* Extra data */
         errors.push_back(Error(TOK, "unexpected tokens for program starting here"));
-        delete res;
         return NULL;
     }
 }
@@ -423,18 +549,15 @@ RULE(STMT) {
     int s = toki; /* keep track of start in case we have to rewind */
     if (TOK.kind == Token::KIND_SEMI) {
         /* Empty, but don't return NULL since there was no problem accepting it */
-        return new AST(EAT(), {}, AST::KIND_BLOCK);
+        return make_unique<AST>(EAT(), AST::KIND_BLOCK);
     } else if (TOK.kind == Token::KIND_LBRC) {
-        AST* res = new AST(EAT(), {}, AST::KIND_BLOCK);
+        unique_ptr<AST> res = make_unique<AST>(EAT(), AST::KIND_BLOCK);
         
         /* Keep parsing statements (recursively) until we hit the end of the block */
         while (!DONE && TOK.kind != Token::KIND_RBRC) {
-            AST* sub = SUB(STMT);
-            if (!sub) {
-                delete res;
-                return NULL;
-            }
-            res->sub.push_back(sub);
+            unique_ptr<AST> sub = SUB(STMT);
+            if (!sub) return NULL;
+            res->sub.push_back(move(sub));
         }
 
         if (TOK.kind == Token::KIND_RBRC) {
@@ -445,12 +568,11 @@ RULE(STMT) {
             /* No end found */
             errors.push_back(Error(toks[s], "no end to block started here"));
             toki = s;
-            delete res;
             return NULL;
         }
     } else {
         /* try: EXPR ';' */
-        AST* res = SUB(EXPR);
+        unique_ptr<AST> res = SUB(EXPR);
         if (!res) {
             toki = s;
             return NULL;
@@ -462,36 +584,36 @@ RULE(STMT) {
             return res;
         } else {
             /* There was an expression, but ';' was missing */
+            errors.push_back(Error(TOK, "unexpected token, expected a ';' here to end statement"));
             toki = s;
-            errors.push_back(Error(TOK, "expected a ';' here"));
-            delete res;
             return NULL;
         }
     }
 }
 
 RULE(EXPR) {
-    /* TODO: implement precedence, for now just accept an atom expression */
+    /* TODO: implement operators, function calls, precedence levels. For now, just accept an atom expression */
     return SUB(ATOM);
 }
 
 RULE(ATOM) {
     if (TOK.kind == Token::KIND_NAME) {
-        return new AST(EAT(), {}, AST::KIND_NAME);
+        return make_unique<AST>(EAT(), AST::KIND_NAME);
     } else if (TOK.kind == Token::KIND_INT) {
-        return new AST(EAT(), {}, AST::KIND_INT);
+        return make_unique<AST>(EAT(), AST::KIND_INT);
     } else if (TOK.kind == Token::KIND_STR) {
-        return new AST(EAT(), {}, AST::KIND_STR);
+        return make_unique<AST>(EAT(), AST::KIND_STR);
     } else {
         return NULL;
     }
 }
 
-AST* parse_file(vector<Token>& toks) {
+unique_ptr<AST> parse_file(vector<Token>& toks) {
     /* Start at the first token, and accept the entire program */
     int toki = 0;
     return SUB(PROGRAM);
 }
+
 ```
 
 And, let's change the `main` function to this:
@@ -512,7 +634,7 @@ int main(int argc, char** argv) {
     printerrors();
 
     /* parse from file */
-    AST* prog = parse_file(toks);
+    unique_ptr<AST> prog = parse_file(toks);
 
     printwarnings();
     printerrors();
@@ -532,7 +654,7 @@ $ make && ./ckc ex.kata
 ex.kata:1:4: error: expected a ';' here
 xyz + 123
 ```
-The problem is that we do have any rule that accepts `+`, and we don't have `;`, which is required to end a statement (and thus anything in `PROGRAM`). Let's change it slightly (set `ex.kata`):
+The problem is that we don't have any rule that accepts `+`, and we don't have `;` in our example, which is required to end a statement (and thus anything in `PROGRAM`). Let's change it slightly (set `ex.kata` to this):
 
 ```
 xyz;

@@ -73,11 +73,10 @@ E8          : E8 '+' E9
 
 We add an extra rule that allows each rule to decay to the rule under it. This means that if that operator is not used in the expression, it doesn't stop the parser, and the rule is effectively skipped.
 
-There's a small problem with this rule though, and that is the fact that it is [left recursive](https://en.wikipedia.org/wiki/Left_recursion). Some parsers can handle this natively, but our hand-written recursive-descent parser cannot handle this. Think about why this is a problem: if `E8` recursively calls `E8` before any tokens are consumed, then nothing has changed, then it will again recursively call itself, and so forth until a stack overflow. This is not good at all!
+There's a small problem with this rule though, and that is the fact that it is [left recursive](https://en.wikipedia.org/wiki/Left_recursion). Some parsers can handle this natively, but our hand-written recursive-descent parser cannot handle this. Think about why this is a problem: if `E8` recursively calls `E8` before any tokens are consumed, then nothing has changed, then it will again recursively call itself, and so forth until a stack overflow, and will never make any progress parsing the result. This is not good at all!
 
 
 There's a solution though, and the solution is to not recursively call a rule from itself, before a token is processed. We can effectively rewrite/refactor the rule as:
-
 
 ```
 E8          : E9 ( '+' E9 | '-' E9 )*
@@ -149,7 +148,7 @@ Remember, `(` and `)` outside of quotation marks are just syntactical grouping s
 We factored it, so that now there is no recursive calls, but it still represents the grammar fully. This rule will, again, resemble the actual parsing algorithm closer, but we'll keep the full, unfactored form as part of the formal specification.
 
 
-As a side note, if we were to use a LR parsing algorithm (which are common in parser generators), we would have the exact opposite problem -- those handlers can handle left recursion, but using right recursion is not recommended, due to how they process it.
+As a side note, if we were to use a LR parsing algorithm (which are common in parser generators), we would have the exact opposite problem -- those handlers can handle left recursion, but using right recursion is not recommended, due to the parsing algorithms using a stack which will use a lot more memory in right recursive grammars as opposed to left recursive ones.
 
 
 Combining all the new rules (which are basically just copies of the existing rules, with different operators), gives us our current working grammar:
@@ -242,7 +241,7 @@ ATOM        : NAME
 
 ```
 
-This may seem monumental, but the code will be straightforward once we have one layer.
+This may seem monumental, but the code for most of the expression levels will be very similar
 
 The `ARGS` rule is simply for ease of use within function calls and index operations, and won't be a rule in the code -- we'll just manually parse arguments within rule `E11`, as I show later
 
@@ -255,30 +254,27 @@ Right-associative operators will recursively call themselves. And, we'll use a m
 ```c++
 RULE(E0) {
     int s = toki;
-    AST* lhs = SUB(E1);
-    if (!lhs) {
+    unique_ptr<AST> res = SUB(E1);
+    if (!res) {
         toki = s;
         return NULL;
     }
 
-    /* Macro to generate cases for specific types, which accepts a token (and recursively calls this rule
-     *   to generate the expression being assigned from) 
-     */
+    /* Macro to generate cases for specific types */
     #define E0_CASE(_tokk, _astk) else if (TOK.kind == _tokk) { \
         Token t = EAT(); \
-        AST* rhs = SUB(E0); /* Since it is right associative, we should have a right-recursive call */ \
+        unique_ptr<AST> lhs = move(res), rhs = SUB(E0); /* Since it is right associative, we should have a right-recursive call */ \
         if (!rhs) { \
             errors.push_back(Error(t, "expected an expression to assign from after here")); \
             toki = s; \
-            delete lhs; \
             return NULL; \
         } \
-        return new AST(t, {lhs, rhs}, _astk); \
+        res = make_unique<AST>(t, _astk); \
+        res->sub.push_back(move(lhs)); \
+        res->sub.push_back(move(rhs)); \
     }
 
     if (false) {}
-
-    /* Just add cases for all operators, they all work the same */
     E0_CASE(Token::KIND_ASSIGN, AST::KIND_ASSIGN)
     E0_CASE(Token::KIND_AADD, AST::KIND_BOP_AADD)
     E0_CASE(Token::KIND_ASUB, AST::KIND_BOP_ASUB)
@@ -290,16 +286,14 @@ RULE(E0) {
     E0_CASE(Token::KIND_AOR, AST::KIND_BOP_AOR)
     E0_CASE(Token::KIND_AXOR, AST::KIND_BOP_AXOR)
     E0_CASE(Token::KIND_AAND, AST::KIND_BOP_AAND)
-    else {
-        /* No assignment, just return other result already parsed */
-        return lhs;
-    }
+
+    return res;
 
     #undef E0_CASE
 }
 ```
 
-Fairly straightforward, and since it is recursive and right associative, we can have things like `x = y = z;`
+Fairly straightforward, and since it is recursive and right associative, we can have things like `x = y = z;`. Just make sure you track your `make_unique`, `SUB`, and `move` calls with unique pointers. If you're getting weird errors that are hard to read but contain "unique" in the error message, chances are that you've forgotten a `move` somewhere.
 
 
 #### Binary Operators (left associative)
@@ -308,51 +302,50 @@ Rules for `E1` through `E9` are basically the same, here it is for `+`/`-` (rule
 
 ```c++
 RULE(E8) {
-    int s = toki; /* capture starting token index, so we can rewind if there was an error */
-    AST* res = SUB(E9);
+    int s = toki;
+    unique_ptr<AST> res = SUB(E9);
     if (!res) {
         toki = s;
         return NULL;
     }
 
-    /* keep parsing groups of operators with higher precedence */
     while (true) {
         AST::Kind k = AST::KIND_NONE;
         /**/ if (TOK.kind == Token::KIND_ADD) k = AST::KIND_BOP_ADD;
         else if (TOK.kind == Token::KIND_SUB) k = AST::KIND_BOP_SUB;
         else break; /* not valid */
 
-        /* Skip operator */
+        /* Skip token */
         Token t = EAT();
-        /* Take another sub-expression of higher precedence */
-        AST* rhs = SUB(E9);
+        unique_ptr<AST> lhs = move(res), rhs = SUB(E2);
         if (!rhs) {
             toki = s;
-            delete res;
             return NULL;
         }
 
-        /* Recursively build tree, from existing AST and new subexpression */
-        res = new AST(t, {res, rhs}, k);
+        /* Build tree up another level */
+        res = make_unique<AST>(t, k);
+        res->sub.push_back(move(lhs));
+        res->sub.push_back(move(rhs));
     }
 
     return res;
 }
 ```
 
-You can see that we start by capturing the starting token index (`s = toki`), and go ahead and parse out the higher precedence operator.
+You can see that we start by capturing the starting token index (`s = toki`), and then attempting to parse the rule corresponding to higher level operators.
 
-Then, the next token should be either `+`/`-` (the operators of this level), or any operators of lower precedence. If it is the exact precedence, then we should consume the token (since it is our job as `E8` to parse `+`/`-`), or go ahead and break and return what we've built so far. Since we know we were called recursively, we don't have to handle lower precedence operators -- the rule calling us (`E7`) has that job, and so on up to `E0`.
+Then, the next token should be either `+`/`-` (the operators of this level), or any operators of lower precedence. If it is the exact precedence, then we should consume the token (since it is our job as `E8` to parse `+`/`-`), or go ahead and break and return what we've built so far. Since we know we were called recursively, we don't have to handle lower precedence operators -- the rule calling us (`E7`) has that job, and so on up to `E0`. So, in that case, we should stop parsing our operators, and exit the `while` loop, returning the current result.
 
 
-You notice that if we accept an operator, but that there was an error, we delete our current result, and rewind to the start, and return `NULL` signaling we did not match. This is because if any sub expressions fail, we cannot match.
+You notice that if we accept an operator, but that there was an error, we delete our current result, and rewind to the start, and return `NULL` signaling we did not match. This is because if any sub expressions fail, we cannot match, and it should signal a syntax error.
 
 Again, the code is very similar for all `E1` through `E9`, just substitute out other `Token::` and `AST::` kinds, as well as the `SUB()` calls to refer to the next operator group.
 
 
 #### Unary Operators (and tightly-binding attributes)
 
-If you've understood the other rules, this rule should make sense, albeit more complex. Essentially, we check and see if there's a unary prefix operator. If not, we just return the next rule (`E11`). Otherwise, we consume the token, recursively call ourselves, and return the unary operator applied to that.
+If you've understood the other rules, this rule should make sense, albeit more complex. Essentially, we check and see if there's a unary prefix operator. If not, we just return the next rule (`E11`). Otherwise, we consume the token, recursively call the rule, and return the unary operator applied to that. Since we consume a token before recursion, we are guaranteed to make progress, and we won't cause problems with infinite recursion.
 
 ```c++
 RULE(E10) {
@@ -375,27 +368,30 @@ RULE(E10) {
     } else {
         /* Recursively get operand of unary operator */
         Token t = EAT();
-        AST* sub = SUB(E10);
+        unique_ptr<AST> sub = SUB(E10);
         if (!sub) {
             toki = s;
             return NULL;
         }
 
-        return new AST(t, {sub}, k);
+        unique_ptr<AST> res = make_unique<AST>(t, k);
+        res->sub.push_back(move(sub));
+        return res;
     }
 }
 ```
 
-This rule below is the most difficult to understand, so I've included a lot of comments to help. Like most others, it starts by parsing a value (which is either `ATOM` or `'(' EXPR ')'`), and then parsing operators that come on the right hand side until no more exist. All the while, replacing the result with the new construct applied to the previous result.
+This rule below is the most difficult to understand, so I've included a lot of comments to help (also, look at the factored form mentioned earlier). Like most others, it starts by parsing a value (which is either `ATOM` or `'(' EXPR ')'`), and then parsing operators that come on the right hand side until no more exist. All the while, replacing the result with the new construct applied to the previous result. 
 
+After parsing the value, it also looks for function calls (`(` directly afterwards), and indexing operations (`[` directly afterwards), and continues until the next token doesn't signal anything we need to parse in this rule.
 
 ```c++
 RULE(E11) {
     /* This one's a bit tricky, we basically start with the left hand side, 
-     *   and continually build on it while there is a construct left on the right hand side
+     *   and continually build on it while there is token representing a function call, index operation, or unary postfix operator.
      */
     int s = toki;
-    AST* res = NULL;
+    unique_ptr<AST> res = NULL;
 
     /* First, we find the base value, which is either any expression in '()', or an ATOM */
     if (TOK.kind == Token::KIND_LPAR) {
@@ -409,10 +405,9 @@ RULE(E11) {
         /* Ensure we ended with a correct symbol as well */
         if (TOK.kind != Token::KIND_RPAR) {
             errors.push_back(Error(TOK, "expected ')' to end parenthetical expression"));
-            delete res;
             return NULL;
         }
-        EAT(); /* consume ')' */
+        EAT();
     } else {
         /* ATOM */
         res = SUB(ATOM);
@@ -429,12 +424,14 @@ RULE(E11) {
             Token t = EAT();
             if (TOK.kind == Token::KIND_NAME) {
                 /* found: '.' NAME */
-                res = new AST(t, {res, new AST(TOK, {}, AST::KIND_NAME)}, AST::KIND_ATTR);
+                unique_ptr<AST> lhs = move(res), rhs = make_unique<AST>(TOK, AST::KIND_NAME);
+                res = make_unique<AST>(t, AST::KIND_ATTR);
+                res->sub.push_back(move(lhs));
+                res->sub.push_back(move(rhs));
                 EAT();
             } else {
                 errors.push_back(Error(t, "expected a name/identifier after '.' for an attribute"));
                 toki = s;
-                delete res;
                 return NULL;
             }
         } else if (TOK.kind == Token::KIND_RARROW) {
@@ -442,34 +439,38 @@ RULE(E11) {
             Token t = EAT();
             if (TOK.kind == Token::KIND_NAME) {
                 /* found: '->' NAME */
-                res = new AST(t, {res, new AST(TOK, {}, AST::KIND_NAME)}, AST::KIND_ATTR_PTR);
+                unique_ptr<AST> lhs = move(res), rhs = make_unique<AST>(TOK, AST::KIND_NAME);
+                res = make_unique<AST>(t, AST::KIND_ATTR_PTR);
+                res->sub.push_back(move(lhs));
+                res->sub.push_back(move(rhs));
                 EAT();
             } else {
                 errors.push_back(Error(t, "expected a name/identifier after '->' for an attribute"));
                 toki = s;
-                delete res;
                 return NULL;
             }
 
         /* Unary postfix operators go here */
         } else if (TOK.kind == Token::KIND_ADDADD) {
-            Token t = EAT();
-            res = new AST(t, {res}, AST::KIND_UOP_POSTINC);
+            unique_ptr<AST> of = move(res);
+            res = make_unique<AST>(EAT(), AST::KIND_UOP_POSTINC);
+            res->sub.push_back(move(of));
         } else if (TOK.kind == Token::KIND_SUBSUB) {
-            Token t = EAT();
-            res = new AST(t, {res}, AST::KIND_UOP_POSTDEC);
-
+            unique_ptr<AST> of = move(res);
+            res = make_unique<AST>(EAT(), AST::KIND_UOP_POSTDEC);
+            res->sub.push_back(move(of));
         /* Function call goes here */
         } else if (TOK.kind == Token::KIND_LPAR) {
             Token t = EAT();
-
-            res = new AST(t, {res}, AST::KIND_CALL);
+            unique_ptr<AST> lhs = move(res);
+            res = make_unique<AST>(t, AST::KIND_CALL);
+            res->sub.push_back(move(lhs));
 
             /* Add ARGS */
             while (TOK.kind != Token::KIND_RPAR) {
-                AST* sub = SUB(EXPR);
+                unique_ptr<AST> sub = SUB(EXPR);
                 if (!sub) break;
-                res->sub.push_back(sub);
+                res->sub.push_back(move(sub));
 
                 if (TOK.kind == Token::KIND_COM) {
                     /* skip comma */
@@ -482,21 +483,21 @@ RULE(E11) {
             } else {
                 errors.push_back(Error(t, "expected ')' to end function call started here"));
                 toki = s;
-                delete res;
                 return NULL;
             }
 
         /* Indexing goes here */
         } else if (TOK.kind == Token::KIND_LBRK) {
             Token t = EAT();
-
-            res = new AST(t, {res}, AST::KIND_INDEX);
+            unique_ptr<AST> lhs = move(res);
+            res = make_unique<AST>(t, AST::KIND_INDEX);
+            res->sub.push_back(move(lhs));
 
             /* Add ARGS */
             while (TOK.kind != Token::KIND_RPAR) {
-                AST* sub = SUB(EXPR);
+                unique_ptr<AST> sub = SUB(EXPR);
                 if (!sub) break;
-                res->sub.push_back(sub);
+                res->sub.push_back(move(sub));
 
                 if (TOK.kind == Token::KIND_COM) {
                     /* skip comma */
@@ -509,7 +510,6 @@ RULE(E11) {
             } else {
                 errors.push_back(Error(t, "expected ']' to end index operation started here"));
                 toki = s;
-                delete res;
                 return NULL;
             }
         } else break; /* out of constructs */
@@ -519,10 +519,10 @@ RULE(E11) {
 }
 ```
 
-You'll notice that an AST for a function call, such as `f(a, b, c)` will have the function being called as the first element of `sub`, and the rest of the arguments appended after it. This may seem unintuitive, since `f(a, b, c)` would be represented as a `AST::KIND_CALL` AST with children: `{f, a, b, c}`. But, it should make sense because `f` can actually be an expression on its own right, so it still needs to be an AST and not just a name. So, remember this when reading the output -- function call ASTs have the function as their first child
+You'll notice that an AST representing a function call (such as `f(a, b)`) will have the function object being called as the first element of the resulting AST, and the rest of the arguments appended afterwards (in this example, `sub` contains `{f, a, b}`). This may seem unintuitive, but it is the best way to represent it, since the function can be an arbitrary expression as well, and not just a name. So, we need support for a function of any expression type, and thus it must be an AST as a child. So, remember this when reading the output -- function call ASTs have the function as their first child
 
 
-If you want to improve error messages, think of common mistakes, or ways the parser could fail (for example, do you want to emit a warning if an expression such as `a + ;` is given? You could detect that in rule `E8`, after you accept a token, but the recursive call for the right side fails -- you could print an error message). I've kept the error messages minimal, but still descriptive, and only in places that are definitely fails.
+If you want to improve error messages, think of common mistakes, or ways the parser could fail (for example, do you want to emit a warning if an expression such as `a + ;` is given? You could detect that in rule `E8`, after you accept a token, but the recursive call for the right side fails -- you could print an error message). I've kept the error messages minimal, but still descriptive, and only in places that are definitely failures.
 
 #### Final Touches
 
