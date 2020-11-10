@@ -23,10 +23,10 @@ Here are the precedences of different operators in Kata. You are free to choose 
 |`=`, `+=`, ... (all assignments)|
 |`||` (conditional or)|
 |`&&` (conditional and)|
+|`<` (less than), `>` (greater than), `<=` (less than or equal to), `==` (equal to), `!=` (not equal to)|
 |`|` (bitwise inclusive or)|
 |`^` (bitwise exclusive or)|
 |`&` (bitwise and)|
-|`<` (less than), `>` (greater than), `<=` (less than or equal to), `==` (equal to), `!=` (not equal to)|
 |`<<` (bitwise shift left), `>>` (bitwise shift right)|
 |`+` (addition), `-` (subtraction)|
 |`*` (multiplication), `/` (division), `%` (modulo)|
@@ -50,10 +50,10 @@ When you think about it, this is kind of how humans do it: we try and find produ
 |E0|`=`, assignments|
 |E1|`||`|
 |E2|`&&`|
-|E3|`|`|
-|E4|`^`|
-|E5|`&`|
-|E6|`<`, `>`, `<=`, `>=`, `==`, `!=`|
+|E3|`<`, `>`, `<=`, `>=`, `==`, `!=`|
+|E4|`|`|
+|E5|`^`|
+|E6|`&`|
 |E7|`<<`, `>>`|
 |E8|`+`, `-`|
 |E9|`*`, `/`, `%`|
@@ -181,21 +181,21 @@ E1          : E1 '||' E2
 E2          : E2 '&&' E3
             | E3
 
-E3          : E3 '|' E4
+E3          : E3 '<' E4
+            | E3 '<=' E4
+            | E3 '>' E4
+            | E3 '>=' E4
+            | E3 '==' E4
+            | E3 '!=' E4
             | E4
 
-E4          : E4 '^' E5
+E4          : E4 '|' E5
             | E5
 
-E5          : E5 '&' E6
+E5          : E5 '^' E6
             | E6
 
-E6          : E6 '<' E7
-            | E6 '<=' E7
-            | E6 '>' E7
-            | E6 '>=' E7
-            | E6 '==' E7
-            | E6 '!=' E7
+E6          : E6 '&' E7
             | E7
 
 E7          : E7 '<<' E8
@@ -295,6 +295,8 @@ RULE(E0) {
 
 Fairly straightforward, and since it is recursive and right associative, we can have things like `x = y = z;`. Just make sure you track your `make_unique`, `SUB`, and `move` calls with unique pointers. If you're getting weird errors that are hard to read but contain "unique" in the error message, chances are that you've forgotten a `move` somewhere.
 
+It's also important to note that just because something is syntactically valid, does not imply that it is semantically valid -- for example, the code `x + y = z;` will parse just fine with our parser, but, depending on the types of the variables involved, probably won't actually be valid code. However, at this stage, we are just focused on parsing it syntactically. We'll worry about whether everything checks out later.
+
 
 #### Binary Operators (left associative)
 
@@ -317,7 +319,7 @@ RULE(E8) {
 
         /* Skip token */
         Token t = EAT();
-        unique_ptr<AST> lhs = move(res), rhs = SUB(E2);
+        unique_ptr<AST> lhs = move(res), rhs = SUB(E9);
         if (!rhs) {
             toki = s;
             return NULL;
@@ -333,7 +335,7 @@ RULE(E8) {
 }
 ```
 
-You can see that we start by capturing the starting token index (`s = toki`), and then attempting to parse the rule corresponding to higher level operators.
+You can see that we start by capturing the starting token index (`s = toki`), and then attempting to parse the rule corresponding to higher level operators (via `SUB(E9)`).
 
 Then, the next token should be either `+`/`-` (the operators of this level), or any operators of lower precedence. If it is the exact precedence, then we should consume the token (since it is our job as `E8` to parse `+`/`-`), or go ahead and break and return what we've built so far. Since we know we were called recursively, we don't have to handle lower precedence operators -- the rule calling us (`E7`) has that job, and so on up to `E0`. So, in that case, we should stop parsing our operators, and exit the `while` loop, returning the current result.
 

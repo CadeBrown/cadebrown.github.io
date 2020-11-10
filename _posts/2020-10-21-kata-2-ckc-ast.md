@@ -117,7 +117,7 @@ We'll be using [unique_ptr](https://www.geeksforgeeks.org/auto_ptr-unique_ptr-sh
 
 To convert a unique pointer to a normal pointer, use `unique_ptr<T>::get()`, i.e. `T* A = B::get();`.
 
-To construct a unique pointer, you can either cast a normal pointer to it (explicitly), like `make_unique<T>(B)`, or use the `make_unique<T>(...)` function, which will take the same arguments as `new T(...)` but return a unique pointer. However, this function is only defined in C++14 and above. So, we need to include our own definition:
+To construct a unique pointer, you can either cast a normal pointer to it (explicitly), like `make_unique<T>(B)`, or use the `make_unique<T>(...)` function, which will take the same arguments as `new T(...)` but return a unique pointer. However, this function is only defined in C++14 and above. So, we need to include our own definition (just copy and paste this, it's exactly what the C++14 spec uses):
 
 ```c++
 template<class T> struct _Unique_if {
@@ -484,6 +484,8 @@ unique_ptr<AST> parse_file(vector<Token>& toks);
 ```
 
 
+The following code shows how a recursive descent parser is implemented. Functions for each rule are defined, and calling the function attempts to match the current position in the token stream with that rule, and return an AST representing it. If it could not be done, `NULL` is returned and an error is added to the global error list. Rules that get a `NULL` from a call to another rule should clean up and return `NULL` themselves, if that was a required part of the definition of that rule.
+
 ```c++
 /* Kata's EBNF: a formal specification for what tokens make up various parts of
  *   the language. 
@@ -654,7 +656,7 @@ $ make && ./ckc ex.kata
 ex.kata:1:4: error: expected a ';' here
 xyz + 123
 ```
-The problem is that we don't have any rule that accepts `+`, and we don't have `;` in our example, which is required to end a statement (and thus anything in `PROGRAM`). Let's change it slightly (set `ex.kata` to this):
+The problem is that we don't have any rule that accepts `+`, and we don't have `;` in our example, which is required to end a statement (and thus anything in `PROGRAM`). Let's change `ex.kata` to this:
 
 ```
 xyz;
