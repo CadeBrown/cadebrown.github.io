@@ -113,48 +113,12 @@ We won't be doing the actual computation (LLVM will do it for us), but we first 
 
 ### AST Implementation
 
-We'll be using [unique_ptr](https://www.geeksforgeeks.org/auto_ptr-unique_ptr-shared_ptr-weak_ptr-2/), which is essentially a manager of the data it points to -- only one `unique_ptr` can point to a particular object at any time. This means you can't have: `unique_ptr<T> A = B;`. You must use the `std::move` function, such that: `unique_ptr<T> A = move(B);`. This invalidates `B`, and it is now considered NULL/unusable/deleted, and you need to instead refer to `A`. Unique pointers are somewhat hard to understand, but once you understand that they mean that a single reference is kept to a value, it means you can return pointers from functions and you don't need to manually free/delete them -- unique pointers do the management automatically. 
-
-To convert a unique pointer to a normal pointer, use `unique_ptr<T>::get()`, i.e. `T* A = B::get();`.
-
-To construct a unique pointer, you can either cast a normal pointer to it (explicitly), like `make_unique<T>(B)`, or use the `make_unique<T>(...)` function, which will take the same arguments as `new T(...)` but return a unique pointer. However, this function is only defined in C++14 and above. So, we need to include our own definition (just copy and paste this, it's exactly what the C++14 spec uses):
-
-```c++
-template<class T> struct _Unique_if {
-    typedef unique_ptr<T> _Single_object;
-};
-
-template<class T> struct _Unique_if<T[]> {
-    typedef unique_ptr<T[]> _Unknown_bound;
-};
-
-template<class T, size_t N> struct _Unique_if<T[N]> {
-    typedef void _Known_bound;
-};
-
-template<class T, class... Args>
-    typename _Unique_if<T>::_Single_object
-    make_unique(Args&&... args) {
-        return unique_ptr<T>(new T(std::forward<Args>(args)...));
-    }
-
-template<class T>
-    typename _Unique_if<T>::_Unknown_bound
-    make_unique(size_t n) {
-        typedef typename remove_extent<T>::type U;
-        return unique_ptr<T>(new U[n]());
-    }
-
-template<class T, class... Args>
-    typename _Unique_if<T>::_Known_bound
-    make_unique(Args&&...) = delete;
-```
-
-For our ASTs, we'll keep children ASTs as unique pointers, so they "own" the unique copy of their children, and we don't have to worry about freeing them.
+We'll be storing ASTs as a tree-like structure, where each AST holds a list of child ASTs
 
 Our AST implementation will be:
 
 ```c++
+
 /* Abstract Syntax Tree - represents program semantics in an abstract way
  *
  * Technically, this is kind of a mash up of a few types:
@@ -243,7 +207,7 @@ struct AST {
     Token tok;
 
     /* List of children nodes */
-    vector< unique_ptr<AST> > sub;
+    vector< AST* > sub;
 
     AST(Token tok_, Kind kind_=Kind::KIND_BLOCK)
         : tok(tok_), kind(kind_) {}
@@ -272,7 +236,7 @@ struct AST {
 
 ```
 
-It's pretty simple, allows us to create and free ASTs, as well as add children nodes. To add a child node, you will use `ast->sub.push_back(move(new_child))`. We need to use the `move` function because we are using `unique_ptr`. 
+It's pretty simple, allows us to create and free ASTs, as well as add children nodes. To add a child node, you will use `ast->sub.push_back(child)`
 
 We could write traversal algorithms now, but we'll just write them for whatever application we want (since we may want special behavior). Also, take note that we aren't using any features of C++ dynamic types, which we may do in the future. For now, however, we'll keep it with a `kind`, and keep the functionality implemented when we use it.
 
@@ -410,11 +374,11 @@ int main(int argc, char** argv) {
     printwarnings();
 
     /* construct AST */
-    unique_ptr<AST> x = make_unique<AST>(toks[0], AST::KIND_NAME);
-    unique_ptr<AST> y = make_unique<AST>(toks[2], AST::KIND_INT);
-    unique_ptr<AST> z = make_unique<AST>(toks[1], AST::KIND_BOP_ADD);
-    z->sub.push_back(move(x));
-    z->sub.push_back(move(y));
+    AST* x = new AST(toks[0], AST::KIND_NAME);
+    AST* y = new AST(toks[2], AST::KIND_INT);
+    AST* z = new AST(toks[1], AST::KIND_BOP_ADD);
+    z->sub.push_back(x);
+    z->sub.push_back(y);
 
     cout << z->to_dot() << endl;
 
@@ -479,7 +443,7 @@ So, let's create a file called `parse.cc`, and define some functions in `kc.hh`:
 ```c++
 
 /* Parse an entire file, and return an AST for it. Return NULL if there were errors */
-unique_ptr<AST> parse_file(vector<Token>& toks);
+AST* parse_file(vector<Token>& toks);
 
 ```
 
@@ -504,7 +468,7 @@ The following code shows how a recursive descent parser is implemented. Function
  */
 
 /* Defines a grammar rule */
-#define RULE(_name) static unique_ptr<AST> R_##_name(vector<Token>& toks, int& toki)
+#define RULE(_name) static AST* R_##_name(vector<Token>& toks, int& toki)
 
 /* Consume a subrule, or return NULL if it did not match */
 #define SUB(_name) R_##_name(toks, toki)
@@ -525,41 +489,19 @@ RULE(STMT);
 RULE(EXPR);
 RULE(ATOM);
 
-RULE(PROGRAM) {
-    unique_ptr<AST> res = make_unique<AST>(TOK, AST::KIND_BLOCK);
-
-    /* Read as many statements as possible, or return NULL 
-     *  if one of those failed
-     */
-    while (!DONE) {
-        unique_ptr<AST> sub = SUB(STMT);
-        if (!sub) return NULL;
-        res->sub.push_back(move(sub));
-    }
-
-    if (TOK.kind == Token::KIND_EOF) {
-        /* Complete program */
-        return res;
-    } else {
-        /* Extra data */
-        errors.push_back(Error(TOK, "unexpected tokens for program starting here"));
-        return NULL;
-    }
-}
-
 RULE(STMT) {
     int s = toki; /* keep track of start in case we have to rewind */
     if (TOK.kind == Token::KIND_SEMI) {
         /* Empty, but don't return NULL since there was no problem accepting it */
-        return make_unique<AST>(EAT(), AST::KIND_BLOCK);
+        return new AST(EAT(), AST::KIND_BLOCK);
     } else if (TOK.kind == Token::KIND_LBRC) {
-        unique_ptr<AST> res = make_unique<AST>(EAT(), AST::KIND_BLOCK);
+        AST* res = new AST(EAT(), AST::KIND_BLOCK);
         
         /* Keep parsing statements (recursively) until we hit the end of the block */
         while (!DONE && TOK.kind != Token::KIND_RBRC) {
-            unique_ptr<AST> sub = SUB(STMT);
+            AST* sub = SUB(STMT);
             if (!sub) return NULL;
-            res->sub.push_back(move(sub));
+            res->sub.push_back(sub);
         }
 
         if (TOK.kind == Token::KIND_RBRC) {
@@ -574,7 +516,7 @@ RULE(STMT) {
         }
     } else {
         /* try: EXPR ';' */
-        unique_ptr<AST> res = SUB(EXPR);
+        AST* res = SUB(EXPR);
         if (!res) {
             toki = s;
             return NULL;
@@ -594,23 +536,24 @@ RULE(STMT) {
 }
 
 RULE(EXPR) {
-    /* TODO: implement operators, function calls, precedence levels. For now, just accept an atom expression */
     return SUB(ATOM);
 }
 
+
 RULE(ATOM) {
     if (TOK.kind == Token::KIND_NAME) {
-        return make_unique<AST>(EAT(), AST::KIND_NAME);
+        return new AST(EAT(), AST::KIND_NAME);
     } else if (TOK.kind == Token::KIND_INT) {
-        return make_unique<AST>(EAT(), AST::KIND_INT);
+        return new AST(EAT(), AST::KIND_INT);
     } else if (TOK.kind == Token::KIND_STR) {
-        return make_unique<AST>(EAT(), AST::KIND_STR);
+        return new AST(EAT(), AST::KIND_STR);
     } else {
         return NULL;
     }
 }
 
-unique_ptr<AST> parse_file(vector<Token>& toks) {
+
+AST* parse_file(vector<Token>& toks) {
     /* Start at the first token, and accept the entire program */
     int toki = 0;
     return SUB(PROGRAM);
@@ -636,7 +579,7 @@ int main(int argc, char** argv) {
     printerrors();
 
     /* parse from file */
-    unique_ptr<AST> prog = parse_file(toks);
+    AST* prog = parse_file(toks);
 
     printwarnings();
     printerrors();

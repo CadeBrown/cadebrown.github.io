@@ -52,12 +52,12 @@ Make sure to put this code *outside* of the `namespace kc`, since it needs to be
 We need a type system for Kata. We'll expand on it as we go, but here will be the basics:
 
   * Integer types, support for different bit widths, and support for signed/unsigned types
-    * `si8`, `ui8`, `si64`, etc.
+    * `s8`, `u8`, `s64`, etc.
     * `bool` is a 1 bit integer (although it may take up 1 byte in memory)
     * C++ Type: `IntType`
   * Floating point types, using [IEEE 754 format](https://en.wikipedia.org/wiki/IEEE_754)
-    * `ieee32`, `ieee64`, etc.
-    * C++ Type: `IeeeType`
+    * `float32`, `float64`, etc.
+    * C++ Type: `FloatType`
   * Pointer types, which represent a memory location of another object of another type. Syntax is a bit different than C
     * `&int`, `&&char`, etc.
     * C++ Type: `PointerType`
@@ -65,8 +65,10 @@ We need a type system for Kata. We'll expand on it as we go, but here will be th
     * `(int,int)->int` signals a function, taking 2 `int` arguments, and returning an `int`
     * C++ Type: `FunctionType`
   * Alias types, which are equivalent to the type they are aliasing, but may print another name in errors. Useful for more readable code
-    * `int` is an alias to `si32`
-    * `double` is an alias to `ieee64`
+    * `byte` is an alias to `u8`
+    * `int` is an alias to `s32`
+    * `uint` is an alias to `u32`
+    * `double` is an alias to `float64`
     * C++ Type: `AliasType`
 
 We'll define these as subclasses an as abstract type, called `kc::Type`. Note that we'll also be generating LLVM code, which has its own type system (indeed, it has names like `llvm::FunctionType` that are similar to ours -- I use `llvm::` before any LLVM type). However, we need our own, since LLVM's type system is low level, and won't have support for all the features we would like. However, we'll write a converter which takes a `kc::Type*` and returns the corresponding `llvm::Type*` used in the generated IR.
@@ -120,7 +122,7 @@ struct IntType : public Type {
         /* Make new type */
         IntType* res = new IntType();
 
-        res->name = bits == 1 ? "bool" : ((sgn ? "si" : "ui") + to_string(bits));
+        res->name = bits == 1 ? "bool" : ((sgn ? "s" : "u") + to_string(bits));
         res->size = (bits + 7) / 8;
         res->bits = bits;
         res->sgn = sgn;
@@ -157,7 +159,7 @@ struct IeeeType : public Type {
         /* Make new type */
         IeeeType* res = new IeeeType();
 
-        res->name = (string)"ieee" + to_string(bits);
+        res->name = (string)"float" + to_string(bits);
         res->size = (bits + 7) / 8;
         res->bits = bits;
 

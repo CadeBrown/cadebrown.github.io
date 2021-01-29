@@ -35,9 +35,9 @@
 
 <title>
     {% if page.title %}
-        {{ page.title }}
+        {{ page.title }} | {{ site.name }}
     {% else %} 
-        {{ site.name }} &mdash; {{ site.description }}
+        {{ site.description }} | {{ site.name }}
     {% endif %}
 </title>
 

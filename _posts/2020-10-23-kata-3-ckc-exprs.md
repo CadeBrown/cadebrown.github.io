@@ -252,9 +252,10 @@ The `ARGS` rule is simply for ease of use within function calls and index operat
 Right-associative operators will recursively call themselves. And, we'll use a macro because otherwise the code becomes a bit awkward and repetitive for this one.
 
 ```c++
+
 RULE(E0) {
     int s = toki;
-    unique_ptr<AST> res = SUB(E1);
+    AST* res = SUB(E1);
     if (!res) {
         toki = s;
         return NULL;
@@ -263,15 +264,16 @@ RULE(E0) {
     /* Macro to generate cases for specific types */
     #define E0_CASE(_tokk, _astk) else if (TOK.kind == _tokk) { \
         Token t = EAT(); \
-        unique_ptr<AST> lhs = move(res), rhs = SUB(E0); /* Since it is right associative, we should have a right-recursive call */ \
+        AST* lhs = res; \
+        AST* rhs = SUB(E0); /* Since it is right associative, we should have a right-recursive call */ \
         if (!rhs) { \
             errors.push_back(Error(t, "expected an expression to assign from after here")); \
             toki = s; \
             return NULL; \
         } \
-        res = make_unique<AST>(t, _astk); \
-        res->sub.push_back(move(lhs)); \
-        res->sub.push_back(move(rhs)); \
+        res = new AST(t, _astk); \
+        res->sub.push_back(lhs); \
+        res->sub.push_back(rhs); \
     }
 
     if (false) {}
@@ -293,7 +295,7 @@ RULE(E0) {
 }
 ```
 
-Fairly straightforward, and since it is recursive and right associative, we can have things like `x = y = z;`. Just make sure you track your `make_unique`, `SUB`, and `move` calls with unique pointers. If you're getting weird errors that are hard to read but contain "unique" in the error message, chances are that you've forgotten a `move` somewhere.
+Fairly straightforward, and since it is recursive and right associative, we can have things like `x = y = z;`.
 
 It's also important to note that just because something is syntactically valid, does not imply that it is semantically valid -- for example, the code `x + y = z;` will parse just fine with our parser, but, depending on the types of the variables involved, probably won't actually be valid code. However, at this stage, we are just focused on parsing it syntactically. We'll worry about whether everything checks out later.
 
@@ -305,7 +307,7 @@ Rules for `E1` through `E9` are basically the same, here it is for `+`/`-` (rule
 ```c++
 RULE(E8) {
     int s = toki;
-    unique_ptr<AST> res = SUB(E9);
+    AST* res = SUB(E9);
     if (!res) {
         toki = s;
         return NULL;
@@ -319,16 +321,17 @@ RULE(E8) {
 
         /* Skip token */
         Token t = EAT();
-        unique_ptr<AST> lhs = move(res), rhs = SUB(E9);
+        AST* lhs = res;
+        AST* rhs = SUB(E9);
         if (!rhs) {
             toki = s;
             return NULL;
         }
 
         /* Build tree up another level */
-        res = make_unique<AST>(t, k);
-        res->sub.push_back(move(lhs));
-        res->sub.push_back(move(rhs));
+        res = new AST(t, k);
+        res->sub.push_back(lhs);
+        res->sub.push_back(rhs);
     }
 
     return res;
@@ -370,14 +373,14 @@ RULE(E10) {
     } else {
         /* Recursively get operand of unary operator */
         Token t = EAT();
-        unique_ptr<AST> sub = SUB(E10);
+        AST* sub = SUB(E10);
         if (!sub) {
             toki = s;
             return NULL;
         }
 
-        unique_ptr<AST> res = make_unique<AST>(t, k);
-        res->sub.push_back(move(sub));
+        AST* res = new AST(t, k);
+        res->sub.push_back(sub);
         return res;
     }
 }
@@ -393,7 +396,7 @@ RULE(E11) {
      *   and continually build on it while there is token representing a function call, index operation, or unary postfix operator.
      */
     int s = toki;
-    unique_ptr<AST> res = NULL;
+    AST* res = NULL;
 
     /* First, we find the base value, which is either any expression in '()', or an ATOM */
     if (TOK.kind == Token::KIND_LPAR) {
@@ -426,10 +429,11 @@ RULE(E11) {
             Token t = EAT();
             if (TOK.kind == Token::KIND_NAME) {
                 /* found: '.' NAME */
-                unique_ptr<AST> lhs = move(res), rhs = make_unique<AST>(TOK, AST::KIND_NAME);
-                res = make_unique<AST>(t, AST::KIND_ATTR);
-                res->sub.push_back(move(lhs));
-                res->sub.push_back(move(rhs));
+                AST* lhs = res;
+                AST* rhs = new AST(TOK, AST::KIND_NAME);
+                res = new AST(t, AST::KIND_ATTR);
+                res->sub.push_back(lhs);
+                res->sub.push_back(rhs);
                 EAT();
             } else {
                 errors.push_back(Error(t, "expected a name/identifier after '.' for an attribute"));
@@ -441,10 +445,11 @@ RULE(E11) {
             Token t = EAT();
             if (TOK.kind == Token::KIND_NAME) {
                 /* found: '->' NAME */
-                unique_ptr<AST> lhs = move(res), rhs = make_unique<AST>(TOK, AST::KIND_NAME);
-                res = make_unique<AST>(t, AST::KIND_ATTR_PTR);
-                res->sub.push_back(move(lhs));
-                res->sub.push_back(move(rhs));
+                AST* lhs = res;
+                AST* rhs = new AST(TOK, AST::KIND_NAME);
+                res = new AST(t, AST::KIND_ATTR_PTR);
+                res->sub.push_back(lhs);
+                res->sub.push_back(rhs);
                 EAT();
             } else {
                 errors.push_back(Error(t, "expected a name/identifier after '->' for an attribute"));
@@ -454,25 +459,25 @@ RULE(E11) {
 
         /* Unary postfix operators go here */
         } else if (TOK.kind == Token::KIND_ADDADD) {
-            unique_ptr<AST> of = move(res);
-            res = make_unique<AST>(EAT(), AST::KIND_UOP_POSTINC);
-            res->sub.push_back(move(of));
+            AST* of = res;
+            res = new AST(EAT(), AST::KIND_UOP_POSTINC);
+            res->sub.push_back(of);
         } else if (TOK.kind == Token::KIND_SUBSUB) {
-            unique_ptr<AST> of = move(res);
-            res = make_unique<AST>(EAT(), AST::KIND_UOP_POSTDEC);
-            res->sub.push_back(move(of));
+            AST* of = res;
+            res = new AST(EAT(), AST::KIND_UOP_POSTDEC);
+            res->sub.push_back(of);
         /* Function call goes here */
         } else if (TOK.kind == Token::KIND_LPAR) {
             Token t = EAT();
-            unique_ptr<AST> lhs = move(res);
-            res = make_unique<AST>(t, AST::KIND_CALL);
-            res->sub.push_back(move(lhs));
+            AST* lhs = res;
+            res = new AST(t, AST::KIND_CALL);
+            res->sub.push_back(lhs);
 
             /* Add ARGS */
             while (TOK.kind != Token::KIND_RPAR) {
-                unique_ptr<AST> sub = SUB(EXPR);
+                AST* sub = SUB(EXPR);
                 if (!sub) break;
-                res->sub.push_back(move(sub));
+                res->sub.push_back(sub);
 
                 if (TOK.kind == Token::KIND_COM) {
                     /* skip comma */
@@ -491,15 +496,15 @@ RULE(E11) {
         /* Indexing goes here */
         } else if (TOK.kind == Token::KIND_LBRK) {
             Token t = EAT();
-            unique_ptr<AST> lhs = move(res);
-            res = make_unique<AST>(t, AST::KIND_INDEX);
-            res->sub.push_back(move(lhs));
+            AST* lhs = res;
+            res = new AST(t, AST::KIND_INDEX);
+            res->sub.push_back(lhs);
 
             /* Add ARGS */
             while (TOK.kind != Token::KIND_RPAR) {
-                unique_ptr<AST> sub = SUB(EXPR);
+                AST* sub = SUB(EXPR);
                 if (!sub) break;
-                res->sub.push_back(move(sub));
+                res->sub.push_back(sub);
 
                 if (TOK.kind == Token::KIND_COM) {
                     /* skip comma */
@@ -572,7 +577,7 @@ $ make && ./ckc ex.kata
 ex.kata:1:2: error: expected ')' to end function call started here
 f(;
 ```
-Let's add a finishing touch: `AST::getcontext()` should return another line, which adds `^` and `~` detailing the token that caused the error, for example the output should read:
+Let's add a finishing touch: `Token::getcontext()` should return another line, which adds `^` and `~` detailing the token that caused the error, for example the output should read:
 
 ```
 $ make && ./ckc ex.kata
@@ -628,7 +633,7 @@ These are common [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_c
 
 Now, we want to make the context for a token accept an (optional) color for the token, which should colorize just the token (and the arrow pointing to it) with that color. The method becomes a little more complicated, but it will be worth it
 
-Down further, let's add the relevant code in `AST::getcontext()`:
+Down further, let's add the relevant code in `Token::getcontext()`:
 
 
 ```c++
@@ -723,5 +728,4 @@ At this point, you've got a working expression and nested `{}` block parser, whi
 
 
 See you next time!
-
 

@@ -13,7 +13,6 @@ This site covers my own programming interests, which include numerical programmi
 
 ## Projects
 
-
 ### MAGMA (Matrix Algebra on GPU and Many-core Architectures)
 
 At ICL, I have been working on the [MAGMA](https://icl.utk.edu/magma/) project, specifically adding the abilitity to run on AMD GPUs via the HIP platform (right now it is NVIDIA/CUDA only).
