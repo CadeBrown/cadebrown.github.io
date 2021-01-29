@@ -73,7 +73,8 @@ body {
     tab-size: 4;
     background-color: var(--col-bg0);
     color: var(--col-text);
-    overflow: hidden; /* Hide scrollbars */
+    scrollbar-width: none;  
+
 }
 
 hr {
