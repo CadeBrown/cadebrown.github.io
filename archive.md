@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Archive
-permalink: /archive/
+permalink: /archive
 ---
 <!-- Original snippet for generating archive page found here:
 https://gist.github.com/tuananh/743255://gist.github.com/tuananh/7432553 -->

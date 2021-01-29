@@ -311,5 +311,3 @@ unique_ptr<llvm::Module> gen_llvm(llvm::LLVMContext& ctx, AST* prog);
 We'll keep all the LLVM-specific code in the file `gen_llvm.cc`. I think this is good practice, since we may want to implement a `x86` compiler, or some specific architecture, or allow for building without LLVM entirely. Also, it's best to limit the surface area between LLVM and our compiler, since we'll need to re-invent things like type systems, modules, and so forth independently -- if we use LLVM all over the place, we might find ourselves limited to LLVM's constructs, which are admittedly lower level than the language we are creating.
 
 
-
-
