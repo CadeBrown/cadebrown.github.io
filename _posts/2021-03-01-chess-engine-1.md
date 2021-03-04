@@ -576,91 +576,6 @@ struct move {
 
 };
 
-// cce::eval - Chess position evaluation
-//
-//
-struct eval {
-
-    // If true, there is a forced checkmate with best play
-    bool ismate;
-
-    // Discriminated union
-    union {
-        
-        // Number of moves until checkmate
-        //   if > 0, then it is a forced checkmate for white
-        //   if < 0, then it is a forced checkmate for black
-        // This is used if 'ismate==true'
-        int matein;
-
-        // Score, in pawns, for white
-        //   if > 0, then position is better for white
-        //   if < 0, then position is better for black
-        // This is used if 'ismate==false'
-        float score;
-    };
-
-
-    // Contructors
-    eval(float score_=0.0f) : ismate(false), score(score_) {}
-    eval(int matein_) : ismate(true), matein(matein_) {}
-
-    // Return evaluation as a string
-    string getstr() const {
-        if (ismate) {
-            if (matein >= 0) {
-                // + for white
-                return "M+" + to_string(matein);
-            } else {
-                // - for black
-                return "M" + to_string(matein);
-            }
-        } else {
-            if (score >= 0) {
-                // We should add sign to signify it is a signed quantity
-                return "+" + to_string(score); 
-            } else {
-                // Negative numbers will already have sign
-                return to_string(score);
-            }
-        }
-    }
-
-    // Comparator
-    //   if > 0, then b is better for white than a
-    //   if = 0, then a is the same as b
-    //   if < 0, then b is worse for white than a
-    static int cmp(const eval& a, const eval& b) {
-        if (a.ismate && b.ismate) {
-            // Both have forced mates, so compare the number of moves
-            return b.matein - a.matein;
-        } else if (a.ismate) {
-            // a has mate, b does not 
-            if (a.matein > 0) {
-                // Mate is for white, so a > b
-                return +1;
-            } else {
-                // Mate is for black, so a < b
-                return -1;
-            }
-        } else if (b.ismate) {
-            // b has mate, a does not 
-            if (b.matein > 0) {
-                // Mate is for white, so a < b
-                return -1;
-            } else {
-                // Mate is for black, so a > b
-                return +1;
-            }
-        } else {
-            // Neither have mate, so compare scores
-            float d = b.score - a.score;
-            return d == 0 ? 0 : (d > 0 ? +1 : -1);
-        }
-    }
-
-};
-
 
 // cce::Engine - Chess engine implementation
 //
@@ -676,9 +591,6 @@ struct Engine {
     // The current best move for the starting position
     // NOTE: Check 'isbad()' to see if it is uninitialized
     move best_move;
-
-    // The evaluation for 'best_move'
-    eval best_ev;
 
     // Current state the engine is analyzing
     State state;
@@ -706,7 +618,6 @@ void Engine::setstate(const State& state_) {
 
     // Initialize to bad moves
     best_move = move();
-    best_ev = eval(0.0f);
 
     lock.unlock();
 }
@@ -726,7 +637,6 @@ void Engine::stop() {
     
     // For now, just output 'e2e4'
     best_move = move(TILE(4, 1), TILE(4, 3));
-    best_ev = eval(1.0f);
 
     lock.unlock();
 }

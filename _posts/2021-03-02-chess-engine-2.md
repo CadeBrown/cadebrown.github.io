@@ -138,7 +138,65 @@ struct State {
         // Add it back where it is moving to
         piece[p] |= mt;
 
-        // TODO: Handle castling
+        // Handle castling
+        if (tomove == Color::WHITE) {
+            if (mv.from == TILE(4, 0)) {
+                if (mv.to == TILE(6, 0) && c_WK) {
+                    // White kingside
+                    bb rf = ONEHOT(TILE(7, 0));
+                    bb rt = ONEHOT(TILE(5, 0));
+                    color[Color::WHITE] &= ~rf;
+                    color[Color::WHITE] |= rt;
+                    piece[Piece::R] &= ~rf;
+                    piece[Piece::R] |= rt;
+                } else if (mv.to == TILE(2, 0) && c_WQ) {
+                    // White queenside
+                    bb rf = ONEHOT(TILE(0, 0));
+                    bb rt = ONEHOT(TILE(3, 0));
+                    color[Color::WHITE] &= ~rf;
+                    color[Color::WHITE] |= rt;
+                    piece[Piece::R] &= ~rf;
+                    piece[Piece::R] |= rt;
+                }
+                c_WK = c_WQ = false;
+            }
+            if (mv.from == TILE(0, 0)) {
+                c_WQ = false;
+            } else if (mv.from == TILE(0, 7)) {
+                c_WK = false;
+            }
+        } else {
+            if (mv.from == TILE(4, 7)) {
+                if (mv.to == TILE(6, 7) && c_BK) {
+                    // Black kingside
+                    bb rf = ONEHOT(TILE(7, 7));
+                    bb rt = ONEHOT(TILE(5, 7));
+                    color[Color::WHITE] &= ~rf;
+                    color[Color::WHITE] |= rt;
+                    piece[Piece::R] &= ~rf;
+                    piece[Piece::R] |= rt;
+                    c_WK = false;
+                } else if (mv.to == TILE(2, 7) && c_BQ) {
+                    // Black queenside
+                    bb rf = ONEHOT(TILE(0, 7));
+                    bb rt = ONEHOT(TILE(3, 7));
+                    color[Color::WHITE] &= ~rf;
+                    color[Color::WHITE] |= rt;
+                    piece[Piece::R] &= ~rf;
+                    piece[Piece::R] |= rt;
+                }
+
+                c_BK = c_BQ = false;
+            }
+
+            if (mv.from == TILE(7, 0)) {
+                c_BQ = false;
+            } else if (mv.from == TILE(7, 7)) {
+                c_BK = false;
+            }
+        }
+
+        
         // TODO: Handle en passant
         ep = -1;
 
@@ -156,9 +214,13 @@ struct State {
         }
     }
 
-
     // Returns whether the tile 'tile' is being attacked by the color about to move
     bool is_attacked(int tile) const;
+
+    // Calculates whether the state represents a finished game, either by stalemate or checkmate (or draw
+    //   due to repetition)
+    // Stores status the winner, +1==white, 0==draw, -1==black
+    bool is_done(int& status) const;
 
 };
 
@@ -241,6 +303,40 @@ bool isvalid(const State& s, const move& mv, bool ignorepins) {
 
     // Now, determine if it was valid
     return true;
+}
+
+bool State::is_done(int& status) const {
+    vector<move> moves;
+    getmoves(moves);
+    if (moves.size() == 0) {
+
+        // Get king's position
+        int ntiles;
+        int tiles[64];
+        ntiles = bbtiles(piece[Piece::K] & color[tomove], tiles);
+        assert(ntiles == 1); // Must have exactly 1 king!
+
+
+        // Check state from opposite perspective
+        State ns = *this;
+        ns.tomove = tomove == Color::WHITE ? Color::BLACK : Color::WHITE;
+
+        if (ns.is_attacked(tiles[0])) {
+            // Checkmate, the king is attacked and there are no legal moves
+            status = tomove == Color::WHITE ? -1 : +1;
+            return true;
+        } else {
+            // Stalemate, the king is not attacked and there are no legal moves
+            status = 0;
+            return true;
+        }
+    } else {
+
+        // Game is not over, there are still legal moves
+        status = 0;
+        return false;
+    }
+
 }
 
 bool State::is_attacked(int tile) const {
@@ -373,7 +469,6 @@ void Engine::stop() {
     
     // For now, just output 'e2e4'
     //best_move = move(TILE(4, 1), TILE(4, 3));
-    //best_ev = eval(1.0f);
 
     lock.unlock();
 }
@@ -740,37 +835,45 @@ Now, the only thing we don't have is castling, so let's add that too:
                 // Three tiles that must be passed through not in check
                 int t0 = TILE(4, 0), t1 = TILE(5, 0), t2 = TILE(6, 0);
 
-                bool good = true;
-                for (int k = 0; k < bmv.size(); ++k) {
-                    int dest = bmv[k].to;
-                    if (dest == t0 || dest == t1 || dest == t2) {
-                        good = false;
-                        break;
+                if ((ONEHOT(t0) | ONEHOT(t1) | ONEHOT(t2)) & (omask | cmask)) {
+                    // Can't castle, people in the way
+                } else {
+                    bool good = true;
+                    for (int k = 0; k < bmv.size(); ++k) {
+                        int dest = bmv[k].to;
+                        if (dest == t0 || dest == t1 || dest == t2) {
+                            good = false;
+                            break;
+                        }
                     }
-                }
 
-                if (good) {
-                    // Just add, since we already checked whether we were attacked
-                    res.push_back({ TILE(4, 0), TILE(6, 0) });
-                }
+                    if (good) {
+                        // Just add, since we already checked whether we were attacked
+                        res.push_back({ TILE(4, 0), TILE(6, 0) });
+                    }
 
+                }
             }
+
             if (c_WQ) {
                 // Three tiles that must be passed through not in check
                 int t0 = TILE(4, 0), t1 = TILE(3, 0), t2 = TILE(2, 0);
-
-                bool good = true;
-                for (int k = 0; k < bmv.size(); ++k) {
-                    int dest = bmv[k].to;
-                    if (dest == t0 || dest == t1 || dest == t2) {
-                        good = false;
-                        break;
+                if ((ONEHOT(t0) | ONEHOT(t1) | ONEHOT(t2)) & (omask | cmask)) {
+                    // Can't castle, people in the way
+                } else {
+                    bool good = true;
+                    for (int k = 0; k < bmv.size(); ++k) {
+                        int dest = bmv[k].to;
+                        if (dest == t0 || dest == t1 || dest == t2) {
+                            good = false;
+                            break;
+                        }
                     }
-                }
 
-                if (good) {
-                    // Just add, since we already checked whether we were attacked
-                    res.push_back({ TILE(4, 0), TILE(2, 0) });
+                    if (good) {
+                        // Just add, since we already checked whether we were attacked
+                        res.push_back({ TILE(4, 0), TILE(2, 0) });
+                    }
                 }
             }
         } else if (tomove == Color::BLACK && (c_BK || c_WQ)) {
@@ -786,42 +889,46 @@ Now, the only thing we don't have is castling, so let's add that too:
             if (c_BK) {
                 // Three tiles that must be passed through not in check
                 int t0 = TILE(4, 7), t1 = TILE(5, 7), t2 = TILE(6, 7);
+                if ((ONEHOT(t0) | ONEHOT(t1) | ONEHOT(t2)) & (omask | cmask)) {
+                    // Can't castle, people in the way
+                } else {
+                    bool good = true;
+                    for (int k = 0; k < bmv.size(); ++k) {
+                        int dest = bmv[k].to;
+                        if (dest == t0 || dest == t1 || dest == t2) {
+                            good = false;
+                            break;
+                        }
+                    }
 
-                bool good = true;
-                for (int k = 0; k < bmv.size(); ++k) {
-                    int dest = bmv[k].to;
-                    if (dest == t0 || dest == t1 || dest == t2) {
-                        good = false;
-                        break;
+                    if (good) {
+                        // Just add, since we already checked whether we were attacked
+                        res.push_back({ TILE(4, 7), TILE(6, 7) });
                     }
                 }
-
-                if (good) {
-                    // Just add, since we already checked whether we were attacked
-                    res.push_back({ TILE(4, 7), TILE(6, 7) });
-                }
-
             }
             if (c_BQ) {
                 // Three tiles that must be passed through not in check
                 int t0 = TILE(4, 7), t1 = TILE(3, 7), t2 = TILE(2, 7);
-
-                bool good = true;
-                for (int k = 0; k < bmv.size(); ++k) {
-                    int dest = bmv[k].to;
-                    if (dest == t0 || dest == t1 || dest == t2) {
-                        good = false;
-                        break;
+                if ((ONEHOT(t0) | ONEHOT(t1) | ONEHOT(t2)) & (omask | cmask)) {
+                    // Can't castle, people in the way
+                } else {
+                    bool good = true;
+                    for (int k = 0; k < bmv.size(); ++k) {
+                        int dest = bmv[k].to;
+                        if (dest == t0 || dest == t1 || dest == t2) {
+                            good = false;
+                            break;
+                        }
                     }
-                }
 
-                if (good) {
-                    // Just add, since we already checked whether we were attacked
-                    res.push_back({ TILE(4, 7), TILE(2, 7) });
+                    if (good) {
+                        // Just add, since we already checked whether we were attacked
+                        res.push_back({ TILE(4, 7), TILE(2, 7) });
+                    }
                 }
             }
         }
-    }
 
 ```
 
