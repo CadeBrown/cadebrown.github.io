@@ -1,0 +1,330 @@
+---
+layout: default
+---
+
+<style>
+
+.ttt-board {
+    width: 40vw;
+    height: 40vw;
+    border-spacing: 0;
+    table-layout:fixed;
+}
+
+.ttt-name {
+    font-family: monospace;
+    font-size: 20px;
+    line-height: 1.4;
+}
+
+.ttt-tile {
+    padding: 0.8vw;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+
+
+}
+
+.ttt-X {
+    width: 100%;
+    height: 100%;
+
+    margin: auto;
+    background-image: url('/assets/img/ttt-X.png');
+    background-size: 100%;
+}
+.ttt-O {
+    width: 100%;
+    height: 100%;
+    
+    margin: auto;
+    background-image: url('/assets/img/ttt-O.png');
+    background-size: 100%;
+}
+.ttt-empty {
+
+    width: 100%;
+    height: 100%;
+    
+    margin: auto;
+}
+</style>
+
+
+<script>
+// tictactoe js
+
+
+// Opening database
+let ttt_db = {
+    '3/3/3 X': 'Starting position',
+
+    '3/1X1/3 O': 'Center game',
+    'O2/1X1/3 X': 'Center game',
+    'O2/1X1/X2 O': 'Center game',
+    'O1O/1X1/X2 X': 'Center game',
+    'OXO/1X1/X2 O': 'Center game',
+    'OXO/1X1/XO1 X': 'Center game',
+    'OXO/1X1/XOX O': 'Center game',
+
+    '2O/1X1/3 X': 'Center game (mirror variation)',
+    '2O/1X1/X2 O': 'Center game (mirror variation)',
+
+    'X2/3/3 O': 'Corner game',
+    '2X/3/3 O': 'Corner game',
+    '3/3/X2 O': 'Corner game',
+    '3/3/2X O': 'Corner game',
+
+    'X2/1O1/3 X': 'Corner game, center defense',
+    '2X/1O1/3 X': 'Corner game, center defense',
+    '3/1O1/X2 X': 'Corner game, center defense',
+    '3/1O1/2X X': 'Corner game, center defense',
+
+    'X2/1O1/2X O': 'Corner game, center defense',
+    '2X/1O1/X2 O': 'Corner game, center defense',
+
+    'X2/1O1/X2 O': 'Corner game, Bonaboo attack',
+    '2X/1O1/2X O': 'Corner game, Bonaboo attack',
+
+    'X2/OO1/X2 X': 'Corner game, Bonaboo attack',
+    '2X/1OO/2X X': 'Corner game, Bonaboo attack',
+
+    'X2/OOX/X2 O': 'Corner game, Bonaboo attack',
+    '2X/XOO/2X O': 'Corner game, Bonaboo attack',
+
+    '1X1/3/3 O': 'Off game',
+    '3/3/1X1 O': 'Off game',
+    '3/2X/3 O': 'Off game',
+    '3/X2/3 O': 'Off game',
+}
+
+// Returns the status of 'state', which is either 'X', or 'O' if there is a winner,
+//   'C' if drawn, or '' if unfinished
+function ttt_status(state) {
+    function check(a, b, c) {
+        if (a != '' && a == b && b == c) {
+            return a
+        }
+        return false
+    }
+
+    function cats() {
+        if (!state.board[0].includes('') && !state.board[1].includes('') && !state.board[2].includes('')) {
+            return 'C'
+        }   
+        return false
+    }
+
+    return check(...state.board[0]) || check(...state.board[1]) || check(...state.board[2])
+        || check(state.board[0][0], state.board[1][0], state.board[2][0])
+        || check(state.board[0][1], state.board[1][1], state.board[2][1])
+        || check(state.board[0][2], state.board[1][2], state.board[2][2])
+        || check(state.board[0][0], state.board[1][1], state.board[2][2])
+        || check(state.board[0][2], state.board[1][1], state.board[2][0])
+        || cats() || '';
+}
+
+
+// Evaluates a board state 'state', returns >0 if X is better, <0 if O is better
+// 
+function ttt_eval(state) {
+    let st = ttt_status(state)
+    if (st != '') {
+        if (st == 'X') {
+            return +100
+        } else if (st == 'O') {
+            return -100;
+        } else {
+            return +0;
+        }
+    }
+
+    // Otherwise, evaluate possible moves
+    function best(s, dep) {
+        let bsf = {'move': null, 'eval': 0.0, 'next': []}
+        if (dep <= 0) return bsf
+
+        let st = ttt_status(s)
+        if (st != '') {
+            if (st == 'X') {
+                bsf.eval = +100.0
+            } else if (st == 'O') {
+                bsf.eval = -100.0
+            } else {
+                bsf.eval = 0.0
+            }
+            return bsf
+        }
+
+        // Check for legal moves
+        for (let i = 0; i < 3; ++i) {
+            for (let j = 0; j < 3; ++j) {
+                if (s.board[i][j] == '') {
+                    // Simulate move
+                    let d = {
+                        'board': [
+                            [s.board[0][0],s.board[0][1],s.board[0][2]], 
+                            [s.board[1][0],s.board[1][1],s.board[1][2]], 
+                            [s.board[2][0],s.board[2][1],s.board[2][2]],
+                        ],
+                        'tomove': s.tomove,
+                    }
+                    d.board[i][j] = d.tomove
+                    d.tomove = d.tomove == 'X' ? 'O' : 'X'
+
+                    // Now, find the best move recursively
+                    let b = best(d, dep - 1)
+                    if ((s.tomove == 'X' ? b.eval > bsf.eval : b.eval < bsf.eval) || bsf.move == null) {
+                        bsf.move = [i, j]
+                        bsf.eval = b.eval
+                        bsf.next = [[i, j], ...b.next]
+                    }
+                }
+            }
+        }
+
+        return bsf
+    }
+
+    let r = best(state, 9)
+    console.log('best:', r)
+
+    return r.eval;
+
+}
+
+// To FEN string
+function ttt_toFEN(state) {
+    let res = ''
+
+    // Output board state
+    for (let i = 0; i < 3; ++i) {
+        if (i > 0) res += '/'
+        let empty = 0
+        for (let j = 0; j < 3; ++j) {
+            if (state.board[i][j] == '') {
+                empty++
+            } else {
+                if (empty > 0) {
+                    res += empty
+                    empty = 0
+                }
+                res += state.board[i][j]
+            }
+        }
+
+        if (empty > 0) {
+            res += empty
+            empty = 0
+        }
+    }
+    res += ' ' + state.tomove
+
+    return res
+}
+
+
+
+function ttt_make(id_board, id_name, id_fen) {
+    let board = $('#' + id_board)
+    let name = $('#' + id_name)
+    let fen = $('#' + id_fen)
+
+    // Board state
+    let state = {
+        // Who is next to move? 
+        // 'X' or 'O'
+        'tomove': 'X',
+
+        // 3x3 board of tiles
+        'board': [
+            ['', '', ''],
+            ['', '', ''],
+            ['', '', ''],
+        ],
+    }
+
+    // HTML elements
+    let elems = [
+        [],
+        [],
+        [],
+    ];
+
+    let last_db = ''
+    // Updates the display
+    function update() {
+        let f = ttt_toFEN(state)
+        let st = ttt_status(state)
+        let ev = ttt_eval(state)
+        console.log('ev:', ev)
+
+        last_db = ttt_db[f] || last_db
+
+        let s = f + ": " + last_db
+        if (st != '') {
+            s += ' =' + st
+        }
+
+        name.text(s)
+
+        for (let i = 0; i < 3; ++i) {
+            for (let j = 0; j < 3; ++j) {
+                elems[i][j].removeClass('ttt-empty')
+                elems[i][j].removeClass('ttt-X')
+                elems[i][j].removeClass('ttt-O')
+                elems[i][j].addClass('ttt-' + state.board[i][j])
+            }
+        }
+    }
+    function move(i, j) {
+        if (state.board[i][j] == '' && (ttt_status(state) == '')) {
+            // Valid move
+            state.board[i][j] = state.tomove
+            state.tomove = state.tomove == 'X' ? 'O' : 'X'
+            update()
+        }
+    }
+
+    // Initialize HTML elements
+    for (let i = 0; i < 3; ++i) {
+        let row = $('<tr></tr>')
+        for (let j = 0; j < 3; ++j) {
+            let te = $('<td class="ttt-tile"></td>');
+            let elem = $('<div class="ttt-empty"></div>');
+
+            // Capture coordinate
+            elem.i = i
+            elem.j = j
+
+            te.click(function() {
+                // Element clicked
+                console.log('Clicked: ', elem, elem.i, elem.j)
+                move(elem.i, elem.j)
+
+            })
+
+            te.append(elem)
+            elems[i].push(elem)
+            row.append(te)
+        }
+        board.append(row)
+    }
+
+    // Start off with an update
+    update()
+
+}
+
+$(document).ready(function() {
+    ttt_make('board', 'board-name', 'board-fen')
+})
+
+</script>
+
+
+<span id='board-name' class='ttt-name'></span>
+<table id='board' class='ttt-board'>
+</table>
+
